@@ -22,7 +22,10 @@ defmodule IbkrApi.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:finch, "~> 0.16"}
+      {:finch, "~> 0.16"},
+      {:proper_case, "~> 1.3"},
+      {:error_message, "~> 0.3"},
+      {:jason, "~> 1.4"}
     ]
   end
 end
