@@ -199,6 +199,7 @@ defmodule IbkrApi.ClientPortal.Profile do
   @spec all_accounts_allocation(map) :: ErrorMessage.t_res()
   def all_accounts_allocation(account_ids) do
     body = %{"acctIds" => account_ids}
+
     with {:ok, response} <- HTTP.post(Path.join(@base_url, "/portfolio/allocation"), body) do
       {:ok, struct(AccountAllocation, response)}
     end
@@ -207,6 +208,7 @@ defmodule IbkrApi.ClientPortal.Profile do
   @spec portfolio_positions(String.t(), String.t(), Keyword.t()) :: ErrorMessage.t_res()
   def portfolio_positions(account_id, page_id, opts \\ []) do
     query_string = URI.encode_query(opts)
+
     with {:ok, response} <- HTTP.get(Path.join(@base_url, "/portfolio/#{account_id}/positions/#{page_id}?#{query_string}")) do
       {:ok, Enum.map(response, &struct(PortfolioPosition, &1))}
     end
