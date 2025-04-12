@@ -153,14 +153,6 @@ defmodule IbkrApi.ClientPortal.Account do
     ]
   end
 
-  defmodule BrokerageAccountsResponse do
-    defstruct [
-      accounts: [],
-      aliases: %{},
-      selectedAccount: nil
-    ]
-  end
-
   defmodule SwitchAccountResponse do
     defstruct [set: nil, acctId: nil]
   end
@@ -245,5 +237,3 @@ defmodule IbkrApi.ClientPortal.Account do
     end
   end
 end
-
-

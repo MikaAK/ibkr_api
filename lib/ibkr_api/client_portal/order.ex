@@ -1,4 +1,8 @@
 defmodule IbkrApi.ClientPortal.Order do
+  @moduledoc """
+  `IbkrApi.ClientPortal.Order` module for managing order placement and monitoring.
+  """
+
   defmodule LiveOrder do
     defstruct [:execution_id, :symbol, :side, :order_description, :trade_time, :trade_time_r, :size, :price, :order_ref, :submitter, :exchange, :commission, :net_amount, :account, :acountCode, :company_name, :contract_description_1, :sec_type, :conid, :conidex, :position, :clearing_id, :clearing_name, :liquidation_trade]
   end
@@ -7,15 +11,33 @@ defmodule IbkrApi.ClientPortal.Order do
     defstruct [:filters, :orders, :snapshot]
   end
 
-  defmodule OrderPreviewResponse do
-    defstruct [:amount, :equity, :initial, :maintenance, :warn, :error]
-  end
-
   defmodule OrderStatusResponse do
     defstruct [:sub_type, :request_id, :order_id, :conidex, :symbol, :side, :contract_description_1, :listing_exchange, :option_acct, :company_name, :size, :total_size, :currency, :account, :order_type, :limit_price, :stop_price, :cum_fill, :order_status, :order_status_description, :tif, :fg_color, :bg_color, :order_not_editable, :editable_fields, :cannot_cancel_order, :outside_rth, :deactivate_order, :use_price_mgmt_algo, :sec_type, :available_chart_periods, :order_description, :order_description_with_contract, :alert_active, :child_order_type, :size_and_fills, :exit_strategy_display_price, :exit_strategy_chart_description, :exit_strategy_tool_availability, :allowed_duplicate_opposite, :order_time, :oca_group_id]
   end
 
   defmodule ModifyOrderRequest do
+    @moduledoc """
+    Struct representing a request to modify an existing order.
+    """
+    
+    @typedoc """
+    Type representing a modify order request struct.
+    """
+    @type t :: %__MODULE__{
+      acct_id: String.t() | nil,
+      conid: integer() | nil,
+      order_type: String.t() | nil,
+      outside_rth: boolean() | nil,
+      price: float() | nil,
+      aux_price: float() | nil,
+      side: String.t() | nil,
+      listing_exchange: String.t() | nil,
+      ticker: String.t() | nil,
+      tif: String.t() | nil,
+      quantity: integer() | nil,
+      deactivated: boolean() | nil
+    }
+    
     defstruct [
       acct_id: nil,
       conid: nil,
@@ -50,6 +72,42 @@ defmodule IbkrApi.ClientPortal.Order do
   end
 
   defmodule OrderPreviewRequest do
+    @moduledoc """
+    Struct representing a request to preview an order before placement.
+    """
+    
+    @typedoc """
+    Type representing an order preview request struct.
+    """
+    @type t :: %__MODULE__{
+      acct_id: String.t() | nil,
+      conid: integer() | nil,
+      conidex: String.t() | nil,
+      sec_type: String.t() | nil,
+      c_oid: String.t() | nil,
+      parent_id: String.t() | nil,
+      order_type: String.t() | nil,
+      listing_exchange: String.t() | nil,
+      is_single_group: boolean() | nil,
+      outside_rth: boolean() | nil,
+      price: float() | nil,
+      aux_price: float() | nil,
+      side: String.t() | nil,
+      ticker: String.t() | nil,
+      tif: String.t() | nil,
+      trailing_amt: float() | nil,
+      trailing_type: String.t() | nil,
+      referrer: String.t() | nil,
+      quantity: integer() | nil,
+      cash_qty: float() | nil,
+      fx_qty: float() | nil,
+      use_adaptive: boolean() | nil,
+      is_ccy_conv: boolean() | nil,
+      allocation_method: String.t() | nil,
+      strategy: String.t() | nil,
+      strategy_parameters: map()
+    }
+    
     defstruct [
       acct_id: nil,
       conid: nil,
@@ -92,6 +150,42 @@ defmodule IbkrApi.ClientPortal.Order do
   end
 
   defmodule OrderRequest do
+    @moduledoc """
+    Struct representing a request to place a new order.
+    """
+    
+    @typedoc """
+    Type representing an order request struct.
+    """
+    @type t :: %__MODULE__{
+      acct_id: String.t() | nil,
+      conid: integer() | nil,
+      conidex: String.t() | nil,
+      sec_type: String.t() | nil,
+      c_oid: String.t() | nil,
+      parent_id: String.t() | nil,
+      order_type: String.t() | nil,
+      listing_exchange: String.t() | nil,
+      is_single_group: boolean() | nil,
+      outside_rth: boolean() | nil,
+      price: float() | nil,
+      aux_price: float() | nil,
+      side: String.t() | nil,
+      ticker: String.t() | nil,
+      tif: String.t() | nil,
+      trailing_amt: float() | nil,
+      trailing_type: String.t() | nil,
+      referrer: String.t() | nil,
+      quantity: integer() | nil,
+      cash_qty: float() | nil,
+      fx_qty: float() | nil,
+      use_adaptive: boolean() | nil,
+      is_ccy_conv: boolean() | nil,
+      allocation_method: String.t() | nil,
+      strategy: String.t() | nil,
+      strategy_parameters: map()
+    }
+    
     defstruct [
       acct_id: nil, conid: nil, conidex: nil, sec_type: nil, c_oid: nil,
       parent_id: nil, order_type: nil, listing_exchange: nil, is_single_group: nil,

@@ -1,55 +1,5 @@
 defmodule IbkrApi.SharedUtils.HTTP do
-  @moduledoc """
-  Utility functions to deal with HTTP responses
-
-  To use this we must first stick this into our application.ex
-  if we want to use the default pooling setup
-
-  ```elixir
-  children = [SharedUtils.HTTP]
-  ```
-
-  The other way to use this is to create a child_spec on another module and use
-  this to setup your own module
-
-  ### Example
-
-  ```elixir
-  defmodule MyThingHttp do
-    @app_name :my_thing_http
-
-    # Pool settings are https://hexdocs.pm/finch/0.7.0/Finch.html#child_spec/1
-    # size - Number of connections per pool (think http connections)
-    # count - Number of pools
-    @default_opts [
-      name: @app_name,
-      atomize_keys?: true,
-      pools: [
-        "google.ca": [size: 10, count: 20],
-
-        default: [
-          size: 10,
-          count: 10,
-          conn_max_idle_time: 500,
-          conn_opts: [transport_opts: [timeout: :timer.seconds(5)]]
-        ]
-      ]
-    ]
-
-    def child_spec(opts), do: SharedUtils.HTTP.child_spec({@app_name, opts})
-
-    def get(url, headers \\ [], opts \\ []) do
-      SharedUtils.HTTP.get(url, headers, Keyword.merge(opts, @default_opts))
-    end
-  end
-  ```
-
-  Then in your code you can use
-
-  ```elixir
-  {:ok, %SharedUtils.HTTP.Response{body: body}} = MyThingHttp.get("google.ca")
-  ```
-  """
+  @moduledoc false
 
   require Logger
 
@@ -673,4 +623,3 @@ defmodule IbkrApi.SharedUtils.HTTP do
 
   def deep_transform(value, _), do: value
 end
-
