@@ -4,7 +4,7 @@ defmodule IbkrApi.Config do
   end
 
   def host do
-    Application.get_env(:ibkr_api, :host, "http://localhost")
+    Application.get_env(:ibkr_api, :host, "https://localhost")
   end
 
   def port do

@@ -14,10 +14,17 @@ The Interactive Brokers Client Portal API uses a session-based authentication sy
 
 When you first start the Client Portal Gateway, you need to authenticate through its web interface:
 
-1. Start the gateway as described in the [Getting Started](getting_started.html) guide
-2. Open a browser and navigate to `http://localhost:5000`
-3. Log in with your Interactive Brokers credentials
-4. After successful login, you can start using the IbkrApi library
+1. **Download and start the gateway**:
+   - Download: [Standard Release](https://download2.interactivebrokers.com/portal/clientportal.gw.zip) or [Beta Release](https://download2.interactivebrokers.com/portal/clientportal.beta.gw.zip)
+   - Ensure Java 8+ is installed: `java -version`
+   - Extract and run: `bin/run.sh root/conf.yaml` (Unix) or `bin\run.bat root\conf.yaml` (Windows)
+
+2. **Authenticate via browser**:
+   - Open a browser and navigate to `http://localhost:5000`
+   - Log in with your Interactive Brokers credentials
+   - **Important**: Authentication must be done on the same machine where the gateway is running
+
+3. After successful login, you can start using the IbkrApi library
 
 ## Session Management with IbkrApi
 

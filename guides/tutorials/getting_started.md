@@ -44,16 +44,37 @@ You can override these settings in your environment-specific configuration files
 
 Before using the library, you need to start the Interactive Brokers Client Portal Gateway:
 
-1. Download the Client Portal Gateway from the [Interactive Brokers website](https://www.interactivebrokers.com/en/index.php?f=5041)
-2. Extract the downloaded file
-3. Start the gateway:
+### Prerequisites
 
-```bash
-cd path/to/gateway
-./bin/run.sh
-```
+1. **Java Runtime Environment (JRE)**: The gateway requires Java 8 update 192 or later. Check if Java is installed:
+   ```bash
+   java -version
+   ```
+   If not installed, download from the [official Java website](https://www.java.com/en/download/)
 
-The gateway will start on `localhost:5000` by default.
+### Download and Setup
+
+2. **Download the Client Portal Gateway**:
+   - [Standard Release](https://download2.interactivebrokers.com/portal/clientportal.gw.zip) (recommended)
+   - [Beta Release](https://download2.interactivebrokers.com/portal/clientportal.beta.gw.zip) (if you experience issues with standard)
+
+3. **Extract and run the gateway**:
+   ```bash
+   # Extract the downloaded file
+   unzip clientportal.gw.zip
+   cd clientportal.gw
+   
+   # On Unix/Linux/macOS:
+   bin/run.sh root/conf.yaml
+   
+   # On Windows:
+   bin\run.bat root\conf.yaml
+   ```
+
+**Important Notes:**
+- The gateway must run on the same machine where you'll make API calls
+- Default port is 5000 (configurable in `root/conf.yaml`)
+- You must authenticate through the browser on the same machine
 
 ## Basic Usage
 

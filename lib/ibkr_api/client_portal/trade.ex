@@ -27,7 +27,6 @@ defmodule IbkrApi.ClientPortal.Trade do
   ]
 
   alias IbkrApi.HTTP
-  alias IbkrApi.ErrorMessage
 
   @base_url IbkrApi.Config.base_url()
 
@@ -38,4 +37,3 @@ defmodule IbkrApi.ClientPortal.Trade do
     end
   end
 end
-

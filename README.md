@@ -62,9 +62,12 @@ account_id = hd(accounts).account_id
 
 To use this library, you need:
 
-1. An Interactive Brokers account
-2. The Client Portal Gateway running locally or on a server
-3. Elixir 1.15 or later
+1. **Interactive Brokers account** - Active IBKR brokerage account
+2. **Java Runtime Environment** - Java 8 update 192 or later for the Client Portal Gateway
+3. **Client Portal Gateway** - Download and run locally:
+   - [Standard Release](https://download2.interactivebrokers.com/portal/clientportal.gw.zip)
+   - [Beta Release](https://download2.interactivebrokers.com/portal/clientportal.beta.gw.zip)
+4. **Elixir 1.15 or later**
 
 ## Contributing
 
