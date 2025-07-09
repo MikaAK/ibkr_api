@@ -168,7 +168,7 @@ defmodule IbkrApi.ClientPortal.Account do
   @spec list_accounts() :: ErrorMessage.t_res()
   def list_accounts do
     with {:ok, response} <- HTTP.get(Path.join(@base_url, "/portfolio/accounts")) do
-      {:ok, Enum.map(response, &struct(Account, &1))}
+      {:ok, Enum.map(response, &struct(__MODULE__, &1))}
     end
   end
 
