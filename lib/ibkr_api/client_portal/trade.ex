@@ -33,6 +33,7 @@ defmodule IbkrApi.ClientPortal.Trade do
   @spec list_trades() :: ErrorMessage.t_res()
   def list_trades do
     with {:ok, response} <- HTTP.get(Path.join(@base_url, "/iserver/account/trades")) do
+      IO.inspect(response)
       {:ok, Enum.map(response, &struct(__MODULE__, &1))}
     end
   end
