@@ -32,7 +32,22 @@ defmodule IbkrApi.Backtester.Engine do
       true
   """
   @spec run([Bar.t()], module(), keyword()) :: map()
-  def run(bars, strategy_module, opts \\ []) do
+  def run(bars, strategy_module, opts \\ [])
+  
+  def run([], _strategy_module, opts) do
+    starting_cash = Keyword.get(opts, :starting_cash, 100_000.0)
+    initial_portfolio = Portfolio.new(starting_cash)
+    
+    %{
+      portfolio: initial_portfolio,
+      performance: %{total_value: starting_cash, return_percent: 0.0},
+      strategy: nil,
+      trade_history: [],
+      bars_processed: 0
+    }
+  end
+  
+  def run(bars, strategy_module, opts) do
     starting_cash = Keyword.get(opts, :starting_cash, 100_000.0)
     strategy_opts = Keyword.get(opts, :strategy_opts, [])
     

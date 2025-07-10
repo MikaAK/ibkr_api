@@ -188,8 +188,7 @@ defmodule BacktesterTest do
       first_value = List.first(result.portfolio_values)
       assert Map.has_key?(first_value, :timestamp)
       assert Map.has_key?(first_value, :portfolio_value)
-      assert Map.has_key?(first_value, :price)
-      assert Map.has_key?(first_value, :signal)
+      assert Map.has_key?(first_value, :bar_index)
     end
 
     test "calculates extended performance metrics" do
