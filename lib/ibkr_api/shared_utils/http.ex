@@ -341,26 +341,26 @@ defmodule IbkrApi.SharedUtils.HTTP do
 
   if Mix.env() === :test do
     defdelegate sandbox_head_response(url, headers, options),
-      to: SharedUtils.Support.HTTPSandbox,
+      to: IbkrApi.Support.HTTPSandbox,
       as: :head_response
 
     defdelegate sandbox_get_response(url, headers, options),
-      to: SharedUtils.Support.HTTPSandbox,
+      to: IbkrApi.Support.HTTPSandbox,
       as: :get_response
 
     defdelegate sandbox_delete_response(url, headers, options),
-      to: SharedUtils.Support.HTTPSandbox,
+      to: IbkrApi.Support.HTTPSandbox,
       as: :delete_response
 
     defdelegate sandbox_post_response(url, body, headers, options),
-      to: SharedUtils.Support.HTTPSandbox,
+      to: IbkrApi.Support.HTTPSandbox,
       as: :post_response
 
     defdelegate sandbox_put_response(url, body, headers, options),
-      to: SharedUtils.Support.HTTPSandbox,
+      to: IbkrApi.Support.HTTPSandbox,
       as: :put_response
 
-    defdelegate sandbox_disabled?, to: SharedUtils.Support.HTTPSandbox
+    defdelegate sandbox_disabled?, to: IbkrApi.Support.HTTPSandbox
   else
     defp sandbox_head_response(url, _, _) do
       raise """
