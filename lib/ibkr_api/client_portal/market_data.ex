@@ -6,6 +6,45 @@ defmodule IbkrApi.ClientPortal.MarketData do
   market data related information.
   """
 
+  defmodule HistoricalBar do
+    @moduledoc """
+    Historical market data bar structure.
+    """
+
+    defstruct [
+      :timestamp,
+      :open,
+      :high,
+      :low,
+      :close,
+      :volume
+    ]
+
+    @type t :: %__MODULE__{
+            timestamp: DateTime.t(),
+            open: float(),
+            high: float(),
+            low: float(),
+            close: float(),
+            volume: float()
+          }
+
+    @doc """
+    Converts IBKR API response data to HistoricalBar struct.
+    """
+    @spec from_ibkr(map()) :: t()
+    def from_ibkr(%{"t" => ts, "o" => o, "h" => h, "l" => l, "c" => c, "v" => v}) do
+      %__MODULE__{
+        timestamp: DateTime.from_unix!(ts, :millisecond),
+        open: o,
+        high: h,
+        low: l,
+        close: c,
+        volume: v
+      }
+    end
+  end
+
   defmodule MarketDataSnapshot do
     @moduledoc """
     Market data snapshot response structure with descriptive field names.
@@ -170,7 +209,6 @@ defmodule IbkrApi.ClientPortal.MarketData do
   end
 
   alias IbkrApi.HTTP
-  alias IbkrApi.SharedUtils.ErrorMessage
 
   @base_url IbkrApi.Config.base_url()
 
@@ -186,9 +224,48 @@ defmodule IbkrApi.ClientPortal.MarketData do
   ]
 
   @doc """
-  Get live market data snapshot for the given contract ID(s).
+  Retrieves historical market data for a contract.
 
-  A pre-flight request to /iserver/accounts must be made prior to receiving data.
+  ## Parameters
+  - `conid`: Contract identifier
+  - `period`: Duration of data to fetch (e.g., "1w", "1mo", "1d", "2h")
+  - `bar`: Bar size (e.g., "1hour", "5min", "1day")
+  - `opts`: Optional parameters
+    - `:outside_rth` - Include extended hours? (default: false)
+    - `:exchange` - Optional exchange (default: "SMART")
+
+  ## Examples
+      iex> get_historical_data("265598", "2w", "1hour")
+      {:ok, [%HistoricalBar{timestamp: ~U[2024-02-05 14:00:00Z], open: 189.9, ...}, ...]}
+
+      iex> get_historical_data("265598", "1d", "5min", outside_rth: true)
+      {:ok, [%HistoricalBar{...}, ...]}
+  """
+  @spec get_historical_data(String.t(), String.t(), String.t(), keyword()) :: {:ok, [HistoricalBar.t()]} | {:error, ErrorMessage.t()}
+  def get_historical_data(conid, period, bar, opts \\ []) do
+    outside_rth = Keyword.get(opts, :outside_rth, false)
+    exchange = Keyword.get(opts, :exchange, "SMART")
+
+    params = %{
+      "conid" => conid,
+      "period" => period,
+      "bar" => bar,
+      "outsideRth" => outside_rth,
+      "exchange" => exchange
+    }
+
+    case HTTP.get("#{@base_url}/iserver/marketdata/history", params) do
+      {:ok, %{"data" => data}} when is_list(data) ->
+        bars = Enum.map(data, &HistoricalBar.from_ibkr/1)
+        {:ok, bars}
+      {:ok, response} ->
+        {:error, ErrorMessage.internal_server_error("Unexpected response format: #{inspect(response)}")}
+    end
+  end
+
+  @doc """
+  Retrieves live market data snapshots for one or more contracts.
+
   For derivative contracts, /iserver/secdef/search must be called first.
 
   ## Parameters
@@ -200,10 +277,10 @@ defmodule IbkrApi.ClientPortal.MarketData do
       iex> live_market_data_snapshots("265598")
       {:ok, [%MarketDataSnapshot{symbol: "AAPL", last_price: 150.25, ...}]}
 
-      iex> live_market_data_snapshots("265598,8314", fields: ["31", "55", "84", "86"])
-      {:ok, [%MarketDataSnapshot{symbol: "AAPL", last_price: 150.25, bid_price: 150.20, ask_price: 150.30}]}
+      iex> live_market_data_snapshots("265598,8314", fields: ["31", "55"])
+      {:ok, [%MarketDataSnapshot{last_price: 150.25, symbol: "AAPL"}, ...]}
   """
-  @spec live_market_data_snapshots(String.t(), Keyword.t()) :: ErrorMessage.t_res()
+  @spec live_market_data_snapshots(String.t(), keyword()) :: {:ok, [MarketDataSnapshot.t()]} | {:error, ErrorMessage.t()}
   def live_market_data_snapshots(conids, opts \\ []) do
     fields = Keyword.get(opts, :fields, @all_field_codes)
     fields_param = if is_list(fields), do: Enum.join(fields, ","), else: fields
@@ -215,8 +292,8 @@ defmodule IbkrApi.ClientPortal.MarketData do
 
     with {:ok, response} <- HTTP.get(Path.join(@base_url, "/iserver/marketdata/snapshot"), [], params: query_params) do
       # Parse the response and convert to MarketDataSnapshot structs
-      parsed_snapshots = Enum.map(response, &parse_market_data_response/1)
-      {:ok, parsed_snapshots}
+        parsed_snapshots = Enum.map(response, &parse_market_data_response/1)
+        {:ok, parsed_snapshots}
     end
   end
 
