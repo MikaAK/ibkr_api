@@ -6,14 +6,16 @@ title: Testing with HTTP Mocks
 
 This guide explains how to use the HTTP mocking system when writing tests for the IBKR API client.
 
-## Overview
+> #### Why Use HTTP Mocks? {: .info}
+>
+> The IBKR API client uses a registry-based HTTP mocking system called `HTTPSandbox` to simulate HTTP responses during testing. This approach allows tests to run without making actual HTTP requests to the IBKR API servers, making them **faster**, **more reliable**, and **independent of external services**.
 
-The IBKR API client uses a registry-based HTTP mocking system called `HTTPSandbox` to simulate HTTP responses during testing. This approach allows tests to run without making actual HTTP requests to the IBKR API servers, making them faster, more reliable, and independent of external services.
+## Overview
 
 The mocking system consists of:
 
-1. **HTTPSandbox** - A registry that stores mock HTTP responses
-2. **HTTPMock** - Helper functions for creating different types of responses
+1. **`HTTPSandbox`** - A registry that stores mock HTTP responses
+2. **`HTTPMock`** - Helper functions for creating different types of responses
 3. **Stub Modules** - Convenience modules that provide functions for mocking specific API endpoints
 
 ## Setting Up Tests
@@ -29,7 +31,9 @@ IbkrApi.Support.HTTPSandbox.start_link()
 
 ### Clearing Mocks Between Tests
 
-To prevent test interference, clear the HTTPSandbox registry before each test using a setup block:
+> #### Critical Setup Requirement {: .warning}
+>
+> **Always clear the HTTPSandbox registry before each test** to prevent test interference. Failing to do this will cause unpredictable test failures.
 
 ```elixir
 setup do
@@ -286,26 +290,6 @@ defmodule IbkrApi.ClientPortal.AuthTest do
     end
   end
 end
-```
-
-## Transitioning from :meck to HTTPSandbox
-
-> **Note**: The project has fully migrated from `:meck`-based mocking to `HTTPSandbox`. The older `HTTPMockHelper` module using `:meck` is deprecated.
-
-Previously, tests used the `:meck` library through `HTTPMockHelper`. If you encounter older tests using the old pattern:
-
-```elixir
-# Old pattern - DEPRECATED
-use IbkrApi.Support.HTTPMockHelper
-mock_http(:trade, :stub_list_trades)
-```
-
-You should refactor them to use the new `HTTPSandbox` approach with explicit stub modules:
-
-```elixir
-# New pattern - RECOMMENDED
-alias IbkrApi.Support.HTTPStubs.TradeStub
-TradeStub.stub_list_trades()
 ```
 
 ## Working with Struct Responses

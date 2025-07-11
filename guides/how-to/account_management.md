@@ -7,7 +7,7 @@ This guide covers common account management tasks using the IbkrApi library.
 To retrieve all accounts associated with your Interactive Brokers login:
 
 ```elixir
-{:ok, accounts} = IbkrApi.ClientPortal.Account.list_accounts()
+{:ok, accounts} = IbkrApi.ClientPortal.Portfolio.list_accounts()
 
 # Process the accounts
 accounts |> Enum.each(fn account ->
@@ -26,7 +26,7 @@ To get a comprehensive summary of an account:
 
 ```elixir
 account_id = "U1234567"  # Replace with your actual account ID
-{:ok, summary} = IbkrApi.ClientPortal.Account.account_summary(account_id)
+{:ok, summary} = IbkrApi.ClientPortal.Portfolio.account_summary(account_id)
 
 # Access common summary information
 IO.puts("Available Funds: #{summary.available_funds}")
@@ -40,7 +40,7 @@ IO.puts("Excess Liquidity: #{summary.excess_liquidity}")
 To retrieve the account ledger information:
 
 ```elixir
-{:ok, ledger} = IbkrApi.ClientPortal.Account.account_ledger(account_id)
+{:ok, ledger} = IbkrApi.ClientPortal.Portfolio.account_ledger(account_id)
 
 # Access ledger information for the base currency
 base_currency = ledger.BASE
@@ -57,7 +57,7 @@ If you have a master account with sub-accounts:
 ### Listing Sub-Accounts
 
 ```elixir
-{:ok, sub_accounts} = IbkrApi.ClientPortal.Account.list_sub_accounts()
+{:ok, sub_accounts} = IbkrApi.ClientPortal.Portfolio.list_sub_accounts()
 
 # Process sub-accounts
 sub_accounts |> Enum.each(fn sub_account ->
@@ -73,7 +73,7 @@ For accounts with many sub-accounts:
 
 ```elixir
 # Get the first page
-{:ok, large_sub_accounts} = IbkrApi.ClientPortal.Account.list_large_sub_accounts("0")
+{:ok, large_sub_accounts} = IbkrApi.ClientPortal.Portfolio.list_brokerage_accounts()
 
 # Display metadata
 IO.puts("Total Sub-Accounts: #{large_sub_accounts.metadata.total}")
@@ -97,7 +97,7 @@ If you need to switch the active account for subsequent API calls:
 
 ```elixir
 target_account_id = "U7654321"  # Replace with the account ID you want to switch to
-{:ok, switch_response} = IbkrApi.ClientPortal.Account.switch_account(target_account_id)
+{:ok, switch_response} = IbkrApi.ClientPortal.Portfolio.switch_account(target_account_id)
 
 if switch_response.set do
   IO.puts("Successfully switched to account #{switch_response.acctId}")
@@ -111,7 +111,7 @@ end
 To get P&L information for your account:
 
 ```elixir
-{:ok, pnl_response} = IbkrApi.ClientPortal.Account.get_pnl()
+{:ok, pnl_response} = IbkrApi.ClientPortal.Portfolio.get_pnl()
 
 # Process P&L data
 account_ids = Map.keys(pnl_response.acctId)
@@ -128,7 +128,7 @@ end)
 All API functions return `{:ok, result}` on success and `{:error, reason}` on failure. It's good practice to handle errors appropriately:
 
 ```elixir
-case IbkrApi.ClientPortal.Account.account_summary(account_id) do
+case IbkrApi.ClientPortal.Portfolio.account_summary(account_id) do
   {:ok, summary} ->
     # Process the summary...
     IO.puts("Available Funds: #{summary.available_funds}")

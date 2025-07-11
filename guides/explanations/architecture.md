@@ -2,6 +2,10 @@
 
 This document explains the architecture and design principles of the IbkrApi library, providing context for developers who want to understand how the library works internally.
 
+> #### Architecture Overview {: .info}
+>
+> The IbkrApi library is designed to provide a **clean, idiomatic Elixir interface** to Interactive Brokers' Client Portal Web API. The library follows Elixir conventions and leverages the language's strengths in **concurrent programming** and **fault tolerance**.
+
 ## Overview
 
 IbkrApi is designed as a clean, idiomatic Elixir wrapper around Interactive Brokers' Client Portal API. The library follows these key design principles:
@@ -13,32 +17,101 @@ IbkrApi is designed as a clean, idiomatic Elixir wrapper around Interactive Brok
 
 ## System Architecture
 
-The library is organized into several layers:
+The IbkrApi library provides two distinct communication channels with the IBKR Client Portal Gateway:
 
+### Dual-Channel Architecture
+
+```mermaid
+flowchart TD
+    Client["🏢 Client Code"]
+    
+    %% REST API Channel
+    Client --> RestAPI["📡 REST API Calls"]
+    RestAPI --> ClientPortal["IbkrApi.ClientPortal"]
+    
+    ClientPortal --> Auth["🔐 Auth"]
+    ClientPortal --> Portfolio["💼 Portfolio"]
+    ClientPortal --> Order["📋 Order"]
+    ClientPortal --> Contract["📄 Contract"]
+    ClientPortal --> Trade["💱 Trade"]
+    ClientPortal --> MarketData["📊 MarketData"]
+    
+    Auth --> HTTP["IbkrApi.HTTP<br/>(Rate Limited)"]
+    Portfolio --> HTTP
+    Order --> HTTP
+    Contract --> HTTP
+    Trade --> HTTP
+    MarketData --> HTTP
+    
+    HTTP --> SharedHTTP["IbkrApi.SharedUtils.HTTP"]
+    SharedHTTP --> Finch["🌐 Finch<br/>(HTTP Client)"]
+    
+    %% WebSocket Channel
+    Client --> RealTime["⚡ Real-time Data"]
+    RealTime --> WebSocket["IbkrApi.Websocket"]
+    WebSocket --> WebSockex["🔌 WebSockex<br/>(Behavior)"]
+    
+    WebSocket --> WSMarketData["📈 Market Data"]
+    WebSocket --> WSOrderUpdates["📋 Order Updates"]
+    WebSocket --> WSPnL["💰 P&L Streaming"]
+    
+    %% Gateway
+    Finch --> Gateway["🏛️ IBKR Client Portal Gateway"]
+    WebSockex --> Gateway
+    
+    Gateway --> RestEndpoint["🌐 REST API<br/>(Port 5000)"]
+    Gateway --> WSEndpoint["🔌 WebSocket API<br/>(wss://localhost:5000/v1/api/ws)"]
+    
+    %% Styling
+    classDef clientCode fill:#e1f5fe
+    classDef restApi fill:#f3e5f5
+    classDef websocket fill:#e8f5e8
+    classDef http fill:#fff3e0
+    classDef gateway fill:#fce4ec
+    
+    class Client clientCode
+    class RestAPI,ClientPortal,Auth,Portfolio,Order,Contract,Trade,MarketData restApi
+    class RealTime,WebSocket,WebSockex,WSMarketData,WSOrderUpdates,WSPnL websocket
+    class HTTP,SharedHTTP,Finch http
+    class Gateway,RestEndpoint,WSEndpoint gateway
 ```
-┌─────────────────────────────────────────────────┐
-│                  Client Code                    │
-└───────────────────────┬─────────────────────────┘
-                        │
-┌───────────────────────▼─────────────────────────┐
-│               IbkrApi.ClientPortal              │
-│  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────┐ │
-│  │  Auth   │  │ Account │  │ Order   │  │ ... │ │
-│  └─────────┘  └─────────┘  └─────────┘  └─────┘ │
-└───────────────────────┬─────────────────────────┘
-                        │
-┌───────────────────────▼─────────────────────────┐
-│                  IbkrApi.HTTP                   │
-└───────────────────────┬─────────────────────────┘
-                        │
-┌───────────────────────▼─────────────────────────┐
-│                     Finch                       │
-└───────────────────────┬─────────────────────────┘
-                        │
-┌───────────────────────▼─────────────────────────┐
-│            IBKR Client Portal Gateway           │
-└─────────────────────────────────────────────────┘
-```
+
+### Communication Channels
+
+The library provides two independent communication channels:
+
+#### 1. REST API Channel (Request/Response)
+
+**Purpose**: Synchronous operations like authentication, account queries, order placement, and historical data retrieval.
+
+**Flow**: `ClientPortal Modules → IbkrApi.HTTP → SharedUtils.HTTP → Finch → IBKR Gateway REST API`
+
+**Key Modules**:
+- `IbkrApi.ClientPortal.Auth` - Authentication and session management
+- `IbkrApi.ClientPortal.Portfolio` - Account information, positions, P&L
+- `IbkrApi.ClientPortal.Order` - Order placement and management
+- `IbkrApi.ClientPortal.Contract` - Contract search and information
+- `IbkrApi.ClientPortal.MarketData` - Historical market data
+- `IbkrApi.ClientPortal.Trade` - Trade execution history
+
+**HTTP Stack**:
+- `IbkrApi.HTTP` - Rate-limited HTTP client wrapper
+- `IbkrApi.SharedUtils.HTTP` - Core HTTP functionality with Finch
+- `Finch` - Elixir HTTP client with connection pooling
+
+#### 2. WebSocket Channel (Real-time Streaming)
+
+**Purpose**: Real-time data streaming for market data, order updates, and portfolio P&L.
+
+**Flow**: `User Module → IbkrApi.Websocket → WebSockex → IBKR Gateway WebSocket API`
+
+**Key Features**:
+- `IbkrApi.Websocket` - WebSocket client using WebSockex behavior
+- Real-time market data streaming (Level I quotes)
+- Live order status updates and fills
+- Portfolio P&L streaming
+- Automatic heartbeat management
+- Topic-based event dispatch to user callbacks
 
 ### Core Components
 
@@ -174,15 +247,60 @@ The library is designed to be testable at multiple levels:
 
 Mock modules can be used to simulate API responses for testing without a live connection to the IBKR gateway.
 
+## WebSocket Architecture
+
+The library includes a comprehensive WebSocket implementation for real-time data streaming:
+
+### IbkrApi.Websocket Module
+
+The WebSocket implementation uses the WebSockex behavior and provides:
+
+- **Connection Management**: Automatic SSL configuration for localhost connections
+- **Message Parsing**: Handles IBKR's `<verb>+<arg>+<JSON>` message format
+- **Event Dispatch**: Topic-based routing to user-defined `handle_event/2` callbacks
+- **Heartbeat Management**: Automatic heartbeat messages every 10 seconds
+- **Subscription Management**: Helper functions for market data, orders, and P&L
+
+### WebSocket Message Flow
+
+```
+IBKR Gateway ──WebSocket──> IbkrApi.Websocket ──Events──> User Module
+     │                            │                         │
+     │                            │                         │
+     └──── Heartbeat ←────────────┴─── Subscriptions ←──────┘
+```
+
+### Supported Data Streams
+
+1. **Market Data (`smd`)**: Level I top-of-book data with configurable fields
+2. **Order Updates (`sor`)**: Real-time order status changes and fills
+3. **P&L Updates (`spl`)**: Portfolio profit/loss streaming
+4. **System Messages**: Connection status and system notifications
+
+### Usage Pattern
+
+Users implement the `__using__` macro to create WebSocket clients:
+
+```elixir
+defmodule MyTradingBot do
+  use IbkrApi.Websocket
+
+  def handle_event({:market_data, data}, state) do
+    # Process market data
+    {:ok, state}
+  end
+end
+```
+
 ## Future Considerations
 
 Potential future enhancements to the architecture include:
 
-1. **Streaming Support**: Adding support for WebSocket streaming for real-time data
-2. **Rate Limiting**: Implementing intelligent rate limiting to avoid API throttling
-3. **Caching**: Adding a caching layer for frequently accessed data
-4. **Retry Logic**: Implementing automatic retries for transient failures
-5. **Async Operations**: Supporting asynchronous operations for long-running requests
+1. **Rate Limiting**: Implementing intelligent rate limiting to avoid API throttling
+2. **Caching**: Adding a caching layer for frequently accessed data
+3. **Retry Logic**: Implementing automatic retries for transient failures
+4. **Async Operations**: Supporting asynchronous operations for long-running requests
+5. **Enhanced WebSocket Features**: Multi-account streaming, advanced reconnection strategies
 
 ## Related Resources
 

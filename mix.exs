@@ -41,6 +41,7 @@ defmodule IbkrApi.MixProject do
       {:jason, "~> 1.4"},
       {:hammer, "~> 7.0"},
       {:nimble_options, "~> 1.1"},
+      {:websockex, "~> 0.4.3"},
       {:ex_doc, "~> 0.29", only: :dev, runtime: false}
     ]
   end
@@ -64,6 +65,8 @@ defmodule IbkrApi.MixProject do
         "guides/tutorials/authentication.md",
         "guides/how-to/account_management.md",
         "guides/how-to/trading.md",
+        "guides/how-to/websocket_streaming.md",
+        "guides/how-to/backtesting.md",
         "guides/reference/api_reference.md",
         "guides/explanations/architecture.md"
       ],
@@ -81,6 +84,18 @@ defmodule IbkrApi.MixProject do
           IbkrApi.ClientPortal.Order,
           IbkrApi.ClientPortal.Profile,
           IbkrApi.ClientPortal.Trade
+        ],
+        "WebSocket": [
+          IbkrApi.Websocket,
+          IbkrApi.Websocket.Client
+        ],
+        "Backtesting": [
+          IbkrApi.Backtester.Bar,
+          IbkrApi.Backtester.Portfolio,
+          IbkrApi.Backtester.Strategy,
+          IbkrApi.Backtester.Engine,
+          IbkrApi.Backtester.Strategies.MA,
+          IbkrApi.Backtester.Example
         ],
         "Core": [
           IbkrApi,

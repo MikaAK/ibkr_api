@@ -2,13 +2,14 @@
 
 This tutorial will guide you through the process of setting up and using the IbkrApi library to interact with Interactive Brokers' Client Portal API.
 
-## Prerequisites
-
-Before you begin, make sure you have:
-
-1. An Interactive Brokers account
-2. The Client Portal Gateway running locally or on a server
-3. Elixir 1.15 or later
+> #### Prerequisites {: .info}
+>
+> Before you begin, make sure you have:
+>
+> 1. **An Interactive Brokers account** with appropriate permissions
+> 2. **The Client Portal Gateway** running locally or on a server
+> 3. **Elixir 1.15 or later** installed on your system
+> 4. **Java 8 Update 192+** for running the Client Portal Gateway
 
 ## Installation
 
@@ -72,16 +73,18 @@ Before using the library, you need to start the Interactive Brokers Client Porta
    bin\run.bat root\conf.yaml
    ```
 
-**Important Notes:**
-- The gateway must run on the same machine where you'll make API calls
-- Default port is 5000 (configurable in `root/conf.yaml`)
-- You must authenticate through the browser on the same machine
+> #### Important Security Notes {: .warning}
+>
+> - **Same-machine requirement**: The gateway must run on the same machine where you'll make API calls
+> - **Default port**: 5000 (configurable in `root/conf.yaml`)
+> - **Browser authentication**: You must authenticate through the browser on the same machine
+> - **SSL certificates**: The gateway uses self-signed certificates by default
 
 ## Basic Usage
 
 ### Establishing a Connection
 
-First, you need to authenticate with the IBKR Client Portal API:
+First, you need to authenticate with the IBKR Client Portal API using `IbkrApi.ClientPortal.Auth`:
 
 ```elixir
 # Check if the server is running and authenticate
@@ -93,10 +96,10 @@ First, you need to authenticate with the IBKR Client Portal API:
 
 ### Listing Accounts
 
-Once authenticated, you can list your accounts:
+Once authenticated, you can list your accounts using `IbkrApi.ClientPortal.Portfolio`:
 
 ```elixir
-{:ok, accounts} = IbkrApi.ClientPortal.Account.list_accounts()
+{:ok, accounts} = IbkrApi.ClientPortal.Portfolio.list_accounts()
 
 # Print account IDs
 accounts |> Enum.each(fn account -> IO.puts(account.account_id) end)
@@ -104,22 +107,23 @@ accounts |> Enum.each(fn account -> IO.puts(account.account_id) end)
 
 ### Getting Account Information
 
-You can retrieve detailed information about a specific account:
+You can retrieve detailed information about a specific account using `IbkrApi.ClientPortal.Portfolio`:
 
 ```elixir
 account_id = "U1234567"  # Replace with your actual account ID
-{:ok, summary} = IbkrApi.ClientPortal.Account.account_summary(account_id)
+{:ok, summary} = IbkrApi.ClientPortal.Portfolio.account_summary(account_id)
 
-# Print available funds
-IO.puts("Available funds: #{summary.available_funds}")
+# Access summary data (returns a map with account fields)
+IO.inspect(summary, label: "Account Summary")
 ```
 
-## Next Steps
-
-Now that you've set up the library and made your first API calls, you can:
-
-1. Learn more about [Authentication](authentication.html) processes
-2. Explore [Account Management](../how-to/account_management.html) operations
-3. Start [Trading](../how-to/trading.html) with the API
-
-For a complete reference of all available functions, check the [API Reference](../reference/api_reference.html).
+> #### Next Steps {: .tip}
+>
+> Now that you've set up the library and made your first API calls, you can:
+>
+> 1. Learn more about [Authentication](authentication.html) processes
+> 2. Explore [Account Management](../how-to/account_management.html) operations  
+> 3. Start [Trading](../how-to/trading.html) with the API
+> 4. Set up [WebSocket Streaming](../how-to/websocket_streaming.html) for real-time data
+>
+> For a complete reference of all available functions, check the [API Reference](../reference/api_reference.html).

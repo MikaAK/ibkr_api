@@ -2,14 +2,22 @@
 
 This guide covers how to perform trading operations using the IbkrApi library, including placing orders, modifying orders, and retrieving order status.
 
+> #### Important Trading Prerequisites {: .warning}
+>
+> Before placing any orders, ensure you have:
+> - **Valid IBKR account** with trading permissions
+> - **Client Portal Gateway** running and authenticated
+> - **Sufficient funds** in your account
+> - **Market data subscriptions** for the instruments you want to trade
+
 ## Finding Contracts
 
-Before placing an order, you need to find the contract you want to trade:
+Before placing an order, you need to find the contract you want to trade using `IbkrApi.ClientPortal.Contract`:
 
 ```elixir
 # Search for a stock by symbol
 symbol = "AAPL"
-{:ok, contracts} = IbkrApi.ClientPortal.Contract.search_by_symbol(symbol)
+{:ok, contracts} = IbkrApi.ClientPortal.Contract.search_contracts(symbol)
 
 # Process the search results
 contracts |> Enum.each(fn contract ->
@@ -25,14 +33,16 @@ contract_id = List.first(contracts).conid
 
 ## Placing Orders
 
-### Market Order
+Use `IbkrApi.ClientPortal.Order.place_orders/2` to submit orders to IBKR:
 
-To place a simple market order:
+<!-- tabs-open -->
+
+### Market Order
 
 ```elixir
 # Define the order parameters
 order_params = %{
-  acctId: "U1234567",  # Replace with your account ID
+  acctId: "U1234567",  # Replace with your actual account ID
   conid: 265598,       # Contract ID for the instrument
   orderType: "MKT",    # Market order
   side: "BUY",         # BUY or SELL
@@ -41,16 +51,14 @@ order_params = %{
 }
 
 # Place the order
-{:ok, order_response} = IbkrApi.ClientPortal.Order.place_order(order_params)
+{:ok, order_response} = IbkrApi.ClientPortal.Order.place_orders("U1234567", [order_params])
 
 # Get the order ID for future reference
-order_id = order_response.order_id
+order_id = hd(order_response).order_id
 IO.puts("Order placed with ID: #{order_id}")
 ```
 
 ### Limit Order
-
-For a limit order with a specific price:
 
 ```elixir
 limit_order_params = %{
@@ -63,12 +71,10 @@ limit_order_params = %{
   tif: "DAY"
 }
 
-{:ok, order_response} = IbkrApi.ClientPortal.Order.place_order(limit_order_params)
+{:ok, order_response} = IbkrApi.ClientPortal.Order.place_orders("U1234567", [limit_order_params])
 ```
 
 ### Stop Order
-
-For a stop order:
 
 ```elixir
 stop_order_params = %{
@@ -81,8 +87,10 @@ stop_order_params = %{
   tif: "GTC"           # Good Till Canceled
 }
 
-{:ok, order_response} = IbkrApi.ClientPortal.Order.place_order(stop_order_params)
+{:ok, order_response} = IbkrApi.ClientPortal.Order.place_orders("U1234567", [stop_order_params])
 ```
+
+<!-- tabs-close -->
 
 ## Checking Order Status
 
@@ -184,26 +192,33 @@ Interactive Brokers supports a wide range of order types. Here are some common o
 
 ## Error Handling
 
-All trading operations should include proper error handling:
+> #### Always Handle Errors {: .warning}
+>
+> Order placement can fail for various reasons. Always use pattern matching to handle both success and error cases.
 
 ```elixir
-case IbkrApi.ClientPortal.Order.place_order(order_params) do
-  {:ok, response} ->
-    IO.puts("Order placed successfully: #{response.order_id}")
+case IbkrApi.ClientPortal.Order.place_orders("U1234567", [order_params]) do
+  {:ok, order_response} ->
+    IO.puts("Order placed successfully: #{inspect(order_response)}")
     
-  {:error, %ErrorMessage{code: code, message: message}} ->
-    IO.puts("Error placing order: #{message}")
-    
-    # Handle specific error codes
-    case code do
-      "10001" -> IO.puts("Insufficient funds")
-      "10020" -> IO.puts("Contract not found")
-      _ -> IO.puts("Unknown error")
-    end
+  {:error, %{message: message}} ->
+    IO.puts("Order failed: #{message}")
+    # Handle the error appropriately
 end
 ```
 
+> #### Common Error Scenarios {: .info}
+>
+> - **Insufficient funds**: Account doesn't have enough buying power
+> - **Invalid contract**: Contract ID doesn't exist or is not tradeable
+> - **Market closed**: Trying to place orders outside trading hours
+> - **Permission denied**: Account doesn't have permission to trade the instrument
+
 ## Best Practices
+
+> #### Follow Best Practices {: .tip}
+>
+> To ensure a smooth trading experience, follow these guidelines:
 
 1. **Validate contract information** before placing orders
 2. **Start with small orders** when testing new strategies

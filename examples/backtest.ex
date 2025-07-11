@@ -1,4 +1,4 @@
-defmodule IbkrApi.Backtester.Example do
+defmodule Examples.Backtest do
   @moduledoc """
   Example usage of the IBKR backtesting framework.
 

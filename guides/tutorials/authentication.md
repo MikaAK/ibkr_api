@@ -4,11 +4,13 @@ This tutorial explains how to authenticate with the Interactive Brokers Client P
 
 ## Understanding IBKR Authentication
 
-The Interactive Brokers Client Portal API uses a session-based authentication system. Before making API calls, you need to:
-
-1. Start the Client Portal Gateway
-2. Authenticate through the gateway's web interface
-3. Maintain your authenticated session
+> #### Session-Based Authentication {: .info}
+>
+> The Interactive Brokers Client Portal API uses a session-based authentication system. Before making API calls, you need to:
+>
+> 1. **Start the Client Portal Gateway**
+> 2. **Authenticate through the gateway's web interface**
+> 3. **Maintain your authenticated session**
 
 ## Initial Authentication
 
@@ -22,7 +24,10 @@ When you first start the Client Portal Gateway, you need to authenticate through
 2. **Authenticate via browser**:
    - Open a browser and navigate to `http://localhost:5000`
    - Log in with your Interactive Brokers credentials
-   - **Important**: Authentication must be done on the same machine where the gateway is running
+   
+   > #### Critical Authentication Requirement {: .warning}
+   >
+   > Authentication **must** be done on the same machine where the gateway is running. Remote authentication will not work due to security restrictions.
 
 3. After successful login, you can start using the IbkrApi library
 
@@ -60,20 +65,65 @@ case IbkrApi.ClientPortal.Auth.ping_server() do
 end
 ```
 
-### Reauthentication
+### Re-authentication Flow
 
-If your session expires, you can attempt to reauthenticate:
+When your session expires, you'll need to re-authenticate. Here's the proper flow:
+
+1. **Check authentication status first**:
 
 ```elixir
-{:ok, response} = IbkrApi.ClientPortal.Auth.reauthenticate()
+{:ok, status} = IbkrApi.ClientPortal.Auth.check_auth_status()
 
-case response.message do
-  "Authenticated" -> IO.puts("Successfully reauthenticated")
-  _ -> IO.puts("Reauthentication failed, please log in through the web interface")
+case status do
+  %IbkrApi.ClientPortal.Auth.CheckAuthStatusResponse{authenticated: false} ->
+    # Session expired, need to re-authenticate
+    IO.puts("Session expired, re-authenticating...")
+    
+  %IbkrApi.ClientPortal.Auth.CheckAuthStatusResponse{authenticated: true} ->
+    # Session is still valid
+    IO.puts("Session is active")
 end
 ```
 
-Note that reauthentication may not always work if your session has been expired for too long. In such cases, you'll need to log in again through the web interface.
+2. **When authentication is false, follow this sequence**:
+
+```elixir
+# Step 1: Call reauthenticate
+{:ok, reauth_response} = IbkrApi.ClientPortal.Auth.reauthenticate()
+
+# Step 2: Call validate_sso
+{:ok, sso_response} = IbkrApi.ClientPortal.Auth.validate_sso()
+
+IO.puts("Re-authentication complete")
+```
+
+3. **Complete re-authentication helper function**:
+
+```elixir
+def handle_reauthentication do
+  case IbkrApi.ClientPortal.Auth.check_auth_status() do
+    {:ok, %IbkrApi.ClientPortal.Auth.CheckAuthStatusResponse{authenticated: false}} ->
+      # Session expired, re-authenticate
+      with {:ok, _reauth} <- IbkrApi.ClientPortal.Auth.reauthenticate(),
+           {:ok, _sso} <- IbkrApi.ClientPortal.Auth.validate_sso() do
+        {:ok, :reauthenticated}
+      else
+        {:error, reason} -> {:error, {:reauthentication_failed, reason}}
+      end
+      
+    {:ok, %IbkrApi.ClientPortal.Auth.CheckAuthStatusResponse{authenticated: true}} ->
+      {:ok, :already_authenticated}
+      
+    {:error, reason} ->
+      {:error, {:check_status_failed, reason}}
+  end
+end
+```
+
+**Important Notes:**
+- Always call `reauthenticate/0` first, then `validate_sso/0`
+- Re-authentication may not work if your session has been expired for too long
+- In such cases, you'll need to log in again through the web interface at `http://localhost:5000`
 
 ### Validating SSO
 
