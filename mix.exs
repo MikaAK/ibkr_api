@@ -2,7 +2,7 @@ defmodule IbkrApi.MixProject do
   use Mix.Project
 
   @source_url "https://github.com/MikaAK/ibkr_api"
-  @version "1.0.1"
+  @version "1.0.2"
   @description "Elixir client for Interactive Brokers' Client Portal API"
 
   def project do
@@ -21,8 +21,7 @@ defmodule IbkrApi.MixProject do
   end
 
   # Specifies which paths to compile per environment.
-  defp elixirc_paths(:test), do: ["lib", "test/support"]
-  defp elixirc_paths(_), do: ["lib"]
+  defp elixirc_paths(_), do: ["lib", "test/support"]
 
   # Run "mix help compile.app" to learn about applications.
   def application do
@@ -51,7 +50,7 @@ defmodule IbkrApi.MixProject do
       maintainers: ["Mika Kalathil"],
       licenses: ["MIT"],
       links: %{"GitHub" => @source_url},
-      files: ~w(lib .formatter.exs mix.exs README.md LICENSE)
+      files: ~w(lib .formatter.exs mix.exs README.md LICENSE test/support)
     ]
   end
 
@@ -66,6 +65,7 @@ defmodule IbkrApi.MixProject do
         "guides/how-to/account_management.md",
         "guides/how-to/trading.md",
         "guides/how-to/websocket_streaming.md",
+        "guides/how-to/testing_with_http_mocks.md",
         "guides/how-to/backtesting.md",
         "guides/reference/api_reference.md",
         "guides/explanations/architecture.md"

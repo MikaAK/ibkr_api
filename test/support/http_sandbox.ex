@@ -1,12 +1,12 @@
 defmodule IbkrApi.Support.HTTPSandbox do
   @moduledoc """
   HTTP sandbox for mocking HTTP requests in tests.
-  
+
   Stores response functions in a Registry under the PID of the test process.
   In test, the IbkrApi.SharedUtils.HTTP module will check this sandbox before
   making actual HTTP requests.
   """
-  
+
   @sleep 10
   @state "state"
   @registry :http_sandbox
@@ -26,41 +26,18 @@ defmodule IbkrApi.Support.HTTPSandbox do
   def start_link do
     Registry.start_link(keys: @keys, name: @registry)
   end
-  
-  @doc """
-  Clears all stored response functions from the registry.
-  Should be called in the setup block of each test.
-  
-  ## Examples
-      setup do
-        HTTPSandbox.clear()
-        :ok
-      end
-  """
-  @spec clear :: :ok
-  def clear do
-    case Registry.lookup(@registry, @state) do
-      [{_pid, _funcs}] ->
-        Registry.update_value(@registry, @state, fn _ -> %{} end)
-      [] ->
-        Registry.register(@registry, @state, %{})
-    end
-    
-    Process.sleep(@sleep)
-    :ok
-  end
-  
+
   @doc """
   Checks if the HTTP sandbox is disabled.
   Used by the HTTP client to determine whether to use mock responses.
-  
+
   Always returns false in tests, meaning the sandbox is always enabled.
   """
   @spec sandbox_disabled? :: boolean
   def sandbox_disabled? do
     false
   end
-  
+
   @doc """
   Retrieves the response for a HEAD request
   """
@@ -137,17 +114,17 @@ defmodule IbkrApi.Support.HTTPSandbox do
 
   @doc """
   Sets sandbox responses for GET requests.
-  
+
   ## Examples
-      
+
       HTTPSandbox.set_get_responses([
-        {"https://localhost:5000/v1/api/iserver/auth/status", fn -> 
+        {"https://localhost:5000/v1/api/iserver/auth/status", fn ->
           {:ok, %{
             "authenticated" => true,
             "competing" => false,
             "connected" => true,
             "message" => ""
-          }, %IbkrApi.SharedUtils.HTTP.Response{status: 200}} 
+          }, %IbkrApi.SharedUtils.HTTP.Response{status: 200}}
         end}
       ])
   """
@@ -160,12 +137,12 @@ defmodule IbkrApi.Support.HTTPSandbox do
 
   @doc """
   Sets sandbox responses for POST requests.
-  
+
   ## Examples
-      
+
       HTTPSandbox.set_post_responses([
-        {"https://localhost:5000/v1/api/iserver/account", fn -> 
-          {:ok, %{"acctId" => "U12345678"}, %IbkrApi.SharedUtils.HTTP.Response{status: 200}} 
+        {"https://localhost:5000/v1/api/iserver/account", fn ->
+          {:ok, %{"acctId" => "U12345678"}, %IbkrApi.SharedUtils.HTTP.Response{status: 200}}
         end}
       ])
   """
@@ -178,12 +155,12 @@ defmodule IbkrApi.Support.HTTPSandbox do
 
   @doc """
   Sets sandbox responses for PUT requests.
-  
+
   ## Examples
-      
+
       HTTPSandbox.set_put_responses([
-        {"https://localhost:5000/v1/api/iserver/account/orders", fn -> 
-          {:ok, %{"id" => "12345"}, %IbkrApi.SharedUtils.HTTP.Response{status: 200}} 
+        {"https://localhost:5000/v1/api/iserver/account/orders", fn ->
+          {:ok, %{"id" => "12345"}, %IbkrApi.SharedUtils.HTTP.Response{status: 200}}
         end}
       ])
   """
@@ -196,12 +173,12 @@ defmodule IbkrApi.Support.HTTPSandbox do
 
   @doc """
   Sets sandbox responses for DELETE requests.
-  
+
   ## Examples
-      
+
       HTTPSandbox.set_delete_responses([
-        {"https://localhost:5000/v1/api/iserver/account/order/12345", fn -> 
-          {:ok, %{"id" => "12345"}, %IbkrApi.SharedUtils.HTTP.Response{status: 200}} 
+        {"https://localhost:5000/v1/api/iserver/account/order/12345", fn ->
+          {:ok, %{"id" => "12345"}, %IbkrApi.SharedUtils.HTTP.Response{status: 200}}
         end}
       ])
   """
@@ -211,15 +188,15 @@ defmodule IbkrApi.Support.HTTPSandbox do
     |> Map.new(fn {url, func} -> {{:delete, url}, func} end)
     |> register_responses()
   end
-  
+
   @doc """
   Sets sandbox responses for HEAD requests.
-  
+
   ## Examples
-      
+
       HTTPSandbox.set_head_responses([
-        {"https://localhost:5000/v1/api/iserver/auth/status", fn -> 
-          {:ok, %{}, %IbkrApi.SharedUtils.HTTP.Response{status: 200}} 
+        {"https://localhost:5000/v1/api/iserver/auth/status", fn ->
+          {:ok, %{}, %IbkrApi.SharedUtils.HTTP.Response{status: 200}}
         end}
       ])
   """
@@ -273,15 +250,15 @@ defmodule IbkrApi.Support.HTTPSandbox do
     case Map.get(funcs, key) do
       nil ->
         # Try regex matching
-        regex_match = Enum.find(funcs, fn {{act, pattern}, _} -> 
+        regex_match = Enum.find(funcs, fn {{act, pattern}, _} ->
           act == action && is_struct(pattern, Regex) && Regex.match?(pattern, url)
         end)
-        
+
         case regex_match do
           {{_, _}, func} when is_function(func) -> func
           nil -> raise_function_not_found(action, url, funcs)
         end
-        
+
       func when is_function(func) ->
         func
     end
@@ -298,15 +275,15 @@ defmodule IbkrApi.Support.HTTPSandbox do
 
   # Helper for raising function not found errors
   defp raise_function_not_found(action, url, funcs) do
-    functions_text = 
+    functions_text =
       Enum.map_join(funcs, "\n", fn {k, v} -> "#{inspect(k)}    =>    #{inspect(v)}" end)
-    
+
     raise """
     Function not found for {#{inspect(action)}, #{inspect(url)}} in #{inspect(self())}
-    
+
     Found:
     #{functions_text}
-    
+
     ======= Use: =======
     #{format_example(action, url)}
     === in your test ===
@@ -317,10 +294,10 @@ defmodule IbkrApi.Support.HTTPSandbox do
   defp format_example(action, url) do
     """
     alias IbkrApi.Support.HTTPSandbox
-    
+
     setup do
       HTTPSandbox.set_#{action}_responses([
-        {#{inspect(url)}, fn -> 
+        {#{inspect(url)}, fn ->
           {:ok, response_data, %IbkrApi.SharedUtils.HTTP.Response{status: 200}}
         end}
         # or for regex matching:

@@ -196,7 +196,7 @@ defmodule IbkrApi.ClientPortal.Contract do
               end
             end)
         end)
-        |> Map.new(fn {date, contracts} -> {date, Enum.map(contracts, fn {:ok, contract} -> contract end)} end)
+        |> Map.new(fn {date, contracts} -> {date, List.flatten(contracts)} end)
         |> then(&{:ok, &1})
     end
   end

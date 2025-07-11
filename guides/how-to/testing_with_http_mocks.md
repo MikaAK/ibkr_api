@@ -1,7 +1,3 @@
----
-title: Testing with HTTP Mocks
----
-
 # Testing with HTTP Mocks
 
 This guide explains how to use the HTTP mocking system when writing tests for the IBKR API client.
@@ -27,20 +23,6 @@ The HTTPSandbox registry is automatically started in `test_helper.exs`. Make sur
 ```elixir
 # Start the HTTPSandbox registry for HTTP mocks
 IbkrApi.Support.HTTPSandbox.start_link()
-```
-
-### Clearing Mocks Between Tests
-
-> #### Critical Setup Requirement {: .warning}
->
-> **Always clear the HTTPSandbox registry before each test** to prevent test interference. Failing to do this will cause unpredictable test failures.
-
-```elixir
-setup do
-  # Clear the HTTPSandbox registry before each test
-  IbkrApi.Support.HTTPSandbox.clear()
-  :ok
-end
 ```
 
 ## Using Stub Modules
@@ -262,12 +244,6 @@ defmodule IbkrApi.ClientPortal.AuthTest do
   alias IbkrApi.Support.HTTPMock
   alias IbkrApi.Support.HTTPStubs.AuthStub
 
-  setup do
-    # Clear the HTTPSandbox registry before each test
-    IbkrApi.Support.HTTPSandbox.clear()
-    :ok
-  end
-
   describe "auth_status/0" do
     test "returns authentication status with default mock" do
       AuthStub.stub_auth_status()
@@ -337,15 +313,6 @@ assert status.server_info.server_name != nil
    assert {:ok, result, response} = Module.function()
    ```
 
-3. **Stale Registry**: Always clear the registry between tests to avoid interference:
-
-   ```elixir
-   setup do
-     IbkrApi.Support.HTTPSandbox.clear()
-     :ok
-   end
-   ```
-
 4. **Pattern Not Matching**: If your stub isn't being used, check the URL pattern:
 
    ```elixir
@@ -362,7 +329,6 @@ assert status.server_info.server_name != nil
 - Use `HTTPSandbox` to store and retrieve mock HTTP responses
 - Use stub modules like `AuthStub` for convenience functions
 - Create default or custom responses with `HTTPMock` helpers
-- Clear the registry before each test to prevent interference
 - Mock different response types: success, error, and network errors
 - Test complex workflows by setting up multiple endpoint mocks
 - Assert on struct fields (`.field`) not map keys (`["key"]`)
