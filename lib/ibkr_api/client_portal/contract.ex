@@ -187,14 +187,14 @@ defmodule IbkrApi.ClientPortal.Contract do
 
     with {:ok, {contract_id, strikes}} <- get_strikes_by_symbol(symbol) do
       strikes
-        |> Enum.map(fn {date, %IbkrApi.ClientPortal.Contract.StrikesResponse{call: calls, put: puts}} ->
-          (calls ++ puts)
-          |> Enum.map(fn strike ->
-            with {:ok, contract} <- get_option_contract_info(contract_id, date, strike, opts) do
-              contract
-            end
-          end)
-          |> then(&{date, &1})
+        |> Enum.group_by(
+          fn {date, _} -> date end,
+          fn {date,  %IbkrApi.ClientPortal.Contract.StrikesResponse{call: calls, put: puts}} ->
+            Enum.map((calls ++ puts), fn strike ->
+              with {:ok, contract} <- get_option_contract_info(contract_id, date, strike, opts) do
+                contract
+              end
+            end)
         end)
         |> Map.new(fn {date, contracts} -> {date, Enum.map(contracts, fn {:ok, contract} -> contract end)} end)
         |> then(&{:ok, &1})
