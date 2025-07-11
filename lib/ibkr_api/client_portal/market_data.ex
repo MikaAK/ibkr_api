@@ -255,10 +255,10 @@ defmodule IbkrApi.ClientPortal.MarketData do
     }
 
     case HTTP.get("#{@base_url}/iserver/marketdata/history", params) do
-      {:ok, %{"data" => data} = _body, _response} when is_list(data) ->
+      {:ok, %{"data" => data}} when is_list(data) ->
         bars = Enum.map(data, &HistoricalBar.from_ibkr/1)
         {:ok, bars}
-      {:ok, body, _response} ->
+      {:ok, body} ->
         {:error, ErrorMessage.internal_server_error("Unexpected response format: #{inspect(body)}")}
       {:error, error} ->
         {:error, error}

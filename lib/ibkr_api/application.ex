@@ -7,7 +7,14 @@ defmodule IbkrApi.Application do
 
   @impl true
   def start(_type, _args) do
+    # Clean period similar to previous cleanup_interval_ms
+    hammer_opts = [clean_period: 60_000 * 10]
+
     children = [
+      # Start the Hammer rate limiter
+      {IbkrApi.RateLimiter.RateLimit, hammer_opts},
+
+      # HTTP client for API requests
       IbkrApi.HTTP
     ]
 

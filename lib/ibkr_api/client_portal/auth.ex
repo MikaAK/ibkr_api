@@ -67,7 +67,7 @@ defmodule IbkrApi.ClientPortal.Auth do
 
   @spec ping_server() :: ErrorMessage.t_res()
   def ping_server do
-    with {:ok, response} <- HTTP.post(Path.join(@base_url, "tickle"), %{}) |> IO.inspect do
+    with {:ok, response} <- HTTP.post(Path.join(@base_url, "tickle"), %{}) do
       case response do
         %{hmds: %{error: "no bridge"}} ->
           {:ok, PingServerResponse

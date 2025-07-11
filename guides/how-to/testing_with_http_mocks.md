@@ -288,6 +288,91 @@ defmodule IbkrApi.ClientPortal.AuthTest do
 end
 ```
 
+## Transitioning from :meck to HTTPSandbox
+
+> **Note**: The project has fully migrated from `:meck`-based mocking to `HTTPSandbox`. The older `HTTPMockHelper` module using `:meck` is deprecated.
+
+Previously, tests used the `:meck` library through `HTTPMockHelper`. If you encounter older tests using the old pattern:
+
+```elixir
+# Old pattern - DEPRECATED
+use IbkrApi.Support.HTTPMockHelper
+mock_http(:trade, :stub_list_trades)
+```
+
+You should refactor them to use the new `HTTPSandbox` approach with explicit stub modules:
+
+```elixir
+# New pattern - RECOMMENDED
+alias IbkrApi.Support.HTTPStubs.TradeStub
+TradeStub.stub_list_trades()
+```
+
+## Working with Struct Responses
+
+API functions return structured Elixir data using structs, not raw maps. Test assertions should use struct field access notation (`.field`) instead of map access notation (`["field"]`).
+
+### ❌ Incorrect (Using Map Keys):
+
+```elixir
+assert {:ok, status} = Auth.check_auth_status()
+assert status["authenticated"]
+assert status["serverInfo"]["serverName"] != nil
+```
+
+### ✅ Correct (Using Struct Fields):
+
+```elixir
+assert {:ok, status} = Auth.check_auth_status()
+assert %Auth.CheckAuthStatusResponse{} = status  # Verify the struct type
+assert status.authenticated
+assert status.server_info.server_name != nil
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Incorrect HTTP Method**: Ensure you're using the correct HTTP method (GET, POST, PUT, DELETE) in your stubs:
+
+   ```elixir
+   # For GET endpoints
+   HTTPSandbox.set_get_responses([{pattern, response_fn}])
+   
+   # For POST endpoints
+   HTTPSandbox.set_post_responses([{pattern, response_fn}])
+   ```
+
+2. **Mismatched Return Values**: Ensure your test assertions match the actual function return signatures:
+
+   ```elixir
+   # If the function returns {:ok, struct}
+   assert {:ok, result} = Module.function()
+   
+   # If the function returns {:ok, struct, response}
+   assert {:ok, result, response} = Module.function()
+   ```
+
+3. **Stale Registry**: Always clear the registry between tests to avoid interference:
+
+   ```elixir
+   setup do
+     IbkrApi.Support.HTTPSandbox.clear()
+     :ok
+   end
+   ```
+
+4. **Pattern Not Matching**: If your stub isn't being used, check the URL pattern:
+
+   ```elixir
+   # Debug by inspecting the request URL
+   IbkrApi.Support.HTTPSandbox.set_get_responses([
+     {~r|/path/to/endpoint|, fn url ->
+       HTTPMock.success(%{})
+     end}
+   ])
+   ```
+
 ## Summary
 
 - Use `HTTPSandbox` to store and retrieve mock HTTP responses
@@ -296,3 +381,5 @@ end
 - Clear the registry before each test to prevent interference
 - Mock different response types: success, error, and network errors
 - Test complex workflows by setting up multiple endpoint mocks
+- Assert on struct fields (`.field`) not map keys (`["key"]`)
+- Always validate struct types with pattern matching

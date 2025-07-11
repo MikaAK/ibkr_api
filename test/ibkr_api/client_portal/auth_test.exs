@@ -11,34 +11,34 @@ defmodule IbkrApi.ClientPortal.AuthTest do
       AuthStub.stub_check_auth_status()
       
       # Call the function
-      assert {:ok, status, _response} = Auth.check_auth_status()
+      assert {:ok, status} = Auth.check_auth_status()
       
       # Verify the response
-      assert status["authenticated"]
-      assert status["connected"]
-      assert status["serverInfo"]["serverName"] != nil
-      assert status["message"] == ""
+      assert status.authenticated
+      assert status.connected
+      assert status.server_info.server_name != nil
+      assert status.message == ""
     end
     
     test "returns custom authentication status with custom mock" do
       # Create a custom response
       custom_status = %{
-        "authenticated" => false,
-        "competing" => true,
-        "fail" => "Another session is already authenticated",
-        "message" => "Competing session"
+        :authenticated => false,
+        :competing => true,
+        :fail => "Another session is already authenticated",
+        :message => "Competing session"
       }
       
       # Use the custom response in the mock
       AuthStub.stub_check_auth_status(fn -> HTTPMock.success(custom_status) end)
       
       # Call the function
-      assert {:ok, status, _response} = Auth.check_auth_status()
+      assert {:ok, status} = Auth.check_auth_status()
       
       # Verify the response
-      refute status["authenticated"]
-      assert status["competing"]
-      assert status["message"] == "Competing session"
+      refute status.authenticated
+      assert status.competing
+      assert status.message == "Competing session"
     end
     
     test "handles error response" do
@@ -64,17 +64,16 @@ defmodule IbkrApi.ClientPortal.AuthTest do
     test "successfully reauthenticates with default mock" do
       AuthStub.stub_reauthenticate()
       
-      assert {:ok, result, _response} = Auth.reauthenticate()
-      assert result["message"] == "Reauthenticated."
-      assert result["status"] == "success"
+      assert {:ok, result} = Auth.reauthenticate()
+      assert result.message == "Reauthenticated."
     end
     
     test "fails to reauthenticate with custom mock" do
       # Create a custom failure response
-      AuthStub.stub_reauthenticate(fn -> HTTPMock.success(%{"authenticated" => false}) end)
+      AuthStub.stub_reauthenticate(fn -> HTTPMock.success(%{:message => "Failed to reauthenticate"}) end)
       
-      assert {:ok, result, _response} = Auth.reauthenticate()
-      refute result["authenticated"]
+      assert {:ok, result} = Auth.reauthenticate()
+      assert result.message == "Failed to reauthenticate"
     end
   end
   
@@ -82,8 +81,8 @@ defmodule IbkrApi.ClientPortal.AuthTest do
     test "successfully validates with default mock" do
       AuthStub.stub_validate_sso()
       
-      assert {:ok, result, _response} = Auth.validate_sso()
-      assert result["RESULT"]
+      assert {:ok, result} = Auth.validate_sso()
+      assert result.result
     end
   end
   
@@ -91,8 +90,8 @@ defmodule IbkrApi.ClientPortal.AuthTest do
     test "ping_server/0 successfully pings session with default mock" do
       AuthStub.stub_ping_server()
       
-      assert {:ok, result, _response} = Auth.ping_server()
-      assert result["iserver"]["authStatus"]["authenticated"]
+      assert {:ok, result} = Auth.ping_server()
+      assert result.iserver.auth_status.authenticated
     end
   end
   
@@ -100,8 +99,8 @@ defmodule IbkrApi.ClientPortal.AuthTest do
     test "successfully logs out with default mock" do
       AuthStub.stub_end_session()
       
-      assert {:ok, result, _response} = Auth.end_session()
-      assert result["logout"]
+      assert {:ok, result} = Auth.end_session()
+      assert result.status
     end
   end
   
@@ -113,19 +112,19 @@ defmodule IbkrApi.ClientPortal.AuthTest do
     AuthStub.stub_end_session()
     
     # Check auth status
-    assert {:ok, status, _resp1} = Auth.check_auth_status()
-    assert status["authenticated"]
+    assert {:ok, status} = Auth.check_auth_status()
+    assert status.authenticated
     
     # Validate SSO token
-    assert {:ok, validate_result, _resp2} = Auth.validate_sso()
-    assert validate_result["RESULT"]
+    assert {:ok, validate_result} = Auth.validate_sso()
+    assert validate_result.result
     
     # Ping the server
-    assert {:ok, tickle_result, _resp3} = Auth.ping_server()
-    assert tickle_result["iserver"]["authStatus"]["authenticated"]
+    assert {:ok, tickle_result} = Auth.ping_server()
+    assert tickle_result.iserver.auth_status.authenticated
     
     # Logout
-    assert {:ok, result, _resp4} = Auth.end_session()
-    assert result["logout"]
+    assert {:ok, result} = Auth.end_session()
+    assert result.status
   end
 end

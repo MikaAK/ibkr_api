@@ -21,14 +21,17 @@ defmodule IbkrApi.ClientPortal.PortfolioTest do
       
       # Verify the response
       assert length(accounts) > 0
-      assert Enum.all?(accounts, fn account -> Map.has_key?(account, "id") end)
+      assert Enum.all?(accounts, fn account -> 
+        %IbkrApi.ClientPortal.Portfolio.Account{} = account
+        account.id !== nil
+      end)
     end
     
     test "returns custom accounts list with custom mock" do
       # Create a custom response
       custom_accounts = [
-        %{"id" => "TEST123", "accountId" => "TEST123", "accountTitle" => "Test Account"},
-        %{"id" => "TEST456", "accountId" => "TEST456", "accountTitle" => "Another Test Account"}
+        %{id: "TEST123", account_id: "TEST123", account_title: "Test Account"},
+        %{id: "TEST456", account_id: "TEST456", account_title: "Another Test Account"}
       ]
       
       # Use the custom response in the mock
@@ -39,68 +42,86 @@ defmodule IbkrApi.ClientPortal.PortfolioTest do
       
       # Verify custom response
       assert length(accounts) == 2
-      assert Enum.at(accounts, 0)["id"] == "TEST123"
-      assert Enum.at(accounts, 1)["id"] == "TEST456"
+      assert Enum.at(accounts, 0).id == "TEST123"
+      assert Enum.at(accounts, 1).account_title == "Another Test Account"
     end
   end
   
-  describe "get_account_summary/1" do
+  describe "account_summary/1" do
     test "returns account summary with default mock" do
       account_id = "DU12345"
       PortfolioStub.stub_account_summary()
       
-      assert {:ok, summary} = Portfolio.get_account_summary(account_id)
+      assert {:ok, summary} = Portfolio.account_summary(account_id)
       
-      assert summary["accountReady"]
-      assert Map.has_key?(summary, "accountType")
-      assert Map.has_key?(summary, "availableFunds")
+      # Assert on struct fields - AccountSummary has dynamic fields with SummaryField structs
+      assert summary.accountready.value === true
+      assert Map.has_key?(summary, :accounttype)
+      assert Map.has_key?(summary, :availablefunds)
     end
   end
   
-  describe "get_account_ledger/1" do
+  describe "account_allocation/1" do
+    test "returns allocation data with default mock" do
+      account_id = "DU12345"
+      PortfolioStub.stub_account_allocation()
+      
+      assert {:ok, allocation} = Portfolio.account_allocation(account_id)
+      
+      # AccountAllocation struct has group, asset_class, and sector fields
+      assert allocation.group !== %{}
+      assert allocation.asset_class !== %{}
+      assert allocation.sector !== %{}
+    end
+  end
+  
+  describe "account_ledger/1" do
     test "returns account ledger with default mock" do
       account_id = "DU12345"
-      PortfolioStub.stub_get_account_ledger()
+      PortfolioStub.stub_account_ledger()
       
-      assert {:ok, ledger} = Portfolio.get_account_ledger(account_id)
+      assert {:ok, ledger} = Portfolio.account_ledger(account_id)
       
-      assert Map.has_key?(ledger, "BASE")
+      # AccountLedger struct has base and usd fields which are LedgerCurrency structs
+      assert Map.has_key?(ledger, :base)
     end
   end
   
-  describe "list_positions/1" do
+  describe "portfolio_positions/1" do
     test "returns positions list with default mock" do
       account_id = "DU12345"
-      PortfolioStub.stub_list_positions()
+      PortfolioStub.stub_portfolio_positions()
       
-      assert {:ok, positions} = Portfolio.list_positions(account_id)
+      assert {:ok, positions} = Portfolio.portfolio_positions(account_id)
       
       assert is_list(positions)
       assert length(positions) > 0
-      assert Enum.all?(positions, fn pos -> Map.has_key?(pos, "conid") end)
+      assert Enum.all?(positions, fn pos -> pos.conid !== nil end)
     end
   end
   
-  describe "get_position/2" do
+  describe "position_by_conid/2" do
     test "returns position data with default mock" do
       account_id = "DU12345"
       conid = "265598"
-      PortfolioStub.stub_position()
+      PortfolioStub.stub_position_by_conid()
       
-      assert {:ok, position} = Portfolio.get_position(account_id, conid)
+      assert {:ok, position} = Portfolio.position_by_conid(account_id, conid)
       
-      assert position["conid"] == conid
+      # Position response is a list with position data
+      assert is_list(position)
+      first_position = List.first(position)
+      assert to_string(first_position.conid) == conid
     end
   end
   
-  describe "get_pnl/1" do
+  describe "get_pnl/0" do
     test "returns PnL data with default mock" do
-      account_id = "DU12345"
       PortfolioStub.stub_get_pnl()
       
-      assert {:ok, pnl} = Portfolio.get_pnl(account_id)
+      assert {:ok, pnl} = Portfolio.get_pnl()
       
-      assert Map.has_key?(pnl, "totalPnl")
+      assert pnl.upnl !== nil || pnl.nl !== nil
     end
   end
   
@@ -111,7 +132,8 @@ defmodule IbkrApi.ClientPortal.PortfolioTest do
       
       assert {:ok, result} = Portfolio.switch_account(account_id)
       
-      assert result["set"] == true
+      # Check that we have an account ID in the result
+      assert result.acctId !== nil
     end
   end
   
@@ -119,33 +141,35 @@ defmodule IbkrApi.ClientPortal.PortfolioTest do
     # Set up multiple stubs for a workflow test
     PortfolioStub.stub_list_accounts()
     PortfolioStub.stub_account_summary()
-    PortfolioStub.stub_list_positions()
+    PortfolioStub.stub_portfolio_positions()
     PortfolioStub.stub_switch_account()
     
     # List accounts
     assert {:ok, accounts} = Portfolio.list_accounts()
-    account_id = List.first(accounts)["id"]
+    first_account = List.first(accounts)
+    assert %IbkrApi.ClientPortal.Portfolio.Account{} = first_account
+    account_id = first_account.id
     
     # Get account summary
-    assert {:ok, summary} = Portfolio.get_account_summary(account_id)
-    assert summary["accountReady"]
+    assert {:ok, summary} = Portfolio.account_summary(account_id)
+    assert summary.accountready !== nil
     
     # List positions
-    assert {:ok, positions} = Portfolio.list_positions(account_id)
+    assert {:ok, positions} = Portfolio.portfolio_positions(account_id)
     assert is_list(positions)
     
     # Switch to a different account
     new_account_id = "DU54321"
     assert {:ok, switch_result} = Portfolio.switch_account(new_account_id)
-    assert switch_result["set"] == true
+    assert switch_result.acctId !== nil
   end
   
   test "handling error responses" do
-    # Mock an error response for get_account_summary
+    # Mock an error response for account_summary
     error_response = %{"error" => "Account not found", "code" => 404}
-    PortfolioStub.stub_get_account_summary(fn -> HTTPMock.error(error_response, 404) end)
+    PortfolioStub.stub_account_summary(fn -> HTTPMock.error(error_response, 404) end)
     
-    assert {:error, error} = Portfolio.get_account_summary("INVALID_ACCOUNT")
+    assert {:error, error} = Portfolio.account_summary("INVALID_ACCOUNT")
     assert error.status == 404
   end
   

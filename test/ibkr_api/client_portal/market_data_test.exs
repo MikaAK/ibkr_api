@@ -118,16 +118,17 @@ defmodule IbkrApi.ClientPortal.MarketDataTest do
       MarketDataStub.stub_live_market_data_snapshots()
       
       # Call the function
-      assert {:ok, snapshots, _response} = MarketData.live_market_data_snapshots(conids, fields: fields)
+      assert {:ok, snapshots} = MarketData.live_market_data_snapshots(conids, fields: fields)
       
       # Verify the response
       assert is_list(snapshots)
       assert length(snapshots) > 0
       
-      # Check the structure of the first snapshot
+      # Check the structure of the first snapshot (should be MarketDataSnapshot struct)
       first_snapshot = List.first(snapshots)
-      assert Map.has_key?(first_snapshot, "conid")
-      assert Map.has_key?(first_snapshot, "31")  # last price
+      assert %IbkrApi.ClientPortal.MarketData.MarketDataSnapshot{} = first_snapshot
+      assert first_snapshot.conid !== nil
+      assert first_snapshot.last_price !== nil
     end
     
     test "returns custom market snapshot with custom mock" do
@@ -154,12 +155,19 @@ defmodule IbkrApi.ClientPortal.MarketDataTest do
       MarketDataStub.stub_live_market_data_snapshots(fn -> HTTPMock.success(custom_snapshots) end)
       
       # Call the function
-      assert {:ok, snapshots, _response} = MarketData.live_market_data_snapshots(conids, fields: fields)
+      assert {:ok, snapshots} = MarketData.live_market_data_snapshots(conids, fields: fields)
       
       # Verify custom response
       assert length(snapshots) == 2
-      assert Enum.at(snapshots, 0)["conid"] == "265598"
-      assert Enum.at(snapshots, 1)["conid"] == "8314"
+      
+      first_snapshot = Enum.at(snapshots, 0)
+      second_snapshot = Enum.at(snapshots, 1)
+      
+      assert %IbkrApi.ClientPortal.MarketData.MarketDataSnapshot{} = first_snapshot
+      assert %IbkrApi.ClientPortal.MarketData.MarketDataSnapshot{} = second_snapshot
+      
+      assert first_snapshot.conid == "265598"
+      assert second_snapshot.conid == "8314"
     end
   end
   
@@ -181,10 +189,11 @@ defmodule IbkrApi.ClientPortal.MarketDataTest do
     fields = ["31", "84", "86"]
     
     MarketDataStub.stub_live_market_data_snapshots()
-    assert {:ok, snapshots, _response} = MarketData.live_market_data_snapshots(conids, fields: fields)
+    assert {:ok, snapshots} = MarketData.live_market_data_snapshots(conids, fields: fields)
     assert is_list(snapshots)
     
     snapshot = List.first(snapshots)
-    assert to_string(snapshot["conid"]) == conid
+    assert %IbkrApi.ClientPortal.MarketData.MarketDataSnapshot{} = snapshot
+    assert to_string(snapshot.conid) == conid
   end
 end

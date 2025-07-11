@@ -34,7 +34,8 @@ Configure the library in your application's configuration file (`config/config.e
 
 ```elixir
 config :ibkr_api,
-  base_url: "http://localhost:5000/v1/api",  # Default Client Portal Gateway URL
+  host: "https://localhost",  # Default Client Portal Gateway host
+  port: 5000,  # Default Client Portal Gateway port
   timeout: 30_000  # Request timeout in milliseconds
 ```
 

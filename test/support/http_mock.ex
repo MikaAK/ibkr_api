@@ -19,10 +19,10 @@ defmodule IbkrApi.Support.HTTPMock do
   ## Examples
       
       HTTPMock.success(%{"id" => 1, "name" => "Item"})
-      # Returns: {:ok, %{"id" => 1, "name" => "Item"}, %Response{status: 200}}
+      # Returns: {:ok, {%{"id" => 1, "name" => "Item"}, %Response{status: 200}}}
   """
   def success(body, status \\ 200, headers \\ []) do
-    {:ok, body, %Response{status: status, headers: headers, body: body}}
+    {:ok, {body, %Response{status: status, headers: headers, body: body}}}
   end
 
   @doc """

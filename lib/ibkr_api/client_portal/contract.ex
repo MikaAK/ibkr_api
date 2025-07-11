@@ -179,9 +179,47 @@ defmodule IbkrApi.ClientPortal.Contract do
   end
 
   alias IbkrApi.HTTP
-  alias IbkrApi.ErrorMessage
 
   @base_url IbkrApi.Config.base_url()
+
+  def get_options_for_symbol(symbol, opts \\ []) do
+    opts = Keyword.put_new(opts, :retry?, true)
+
+    with {:ok, {contract_id, strikes}} <- get_strikes_by_symbol(symbol) do
+      strikes
+        |> Enum.map(fn {date, %IbkrApi.ClientPortal.Contract.StrikesResponse{call: calls, put: puts}} ->
+          (calls ++ puts)
+          |> Enum.map(fn strike ->
+            with {:ok, contract} <- get_option_contract_info(contract_id, date, strike, opts) do
+              contract
+            end
+          end)
+          |> then(&{date, &1})
+        end)
+        |> Map.new(fn {date, contracts} -> {date, Enum.map(contracts, fn {:ok, contract} -> contract end)} end)
+        |> then(&{:ok, &1})
+    end
+  end
+
+  defp get_option_contract_info(contract_id, %Date{} = month, strike, opts) do
+    if opts[:retry?] do
+      with {:error, %ErrorMessage{code: :too_many_requests}} <- get_contract_info(contract_id,
+        sec_type: "OPT",
+        month: format_month_for_ibkr(month),
+        strike: strike
+      ) do
+        Process.sleep(opts[:retry_interval] || :timer.seconds(5))
+        get_option_contract_info(contract_id, month, strike, opts)
+      end
+    else
+      get_contract_info(contract_id,
+        sec_type: "OPT",
+        month: format_month_for_ibkr(month),
+        strike: strike,
+        retry?: true
+      )
+    end
+  end
 
   @spec contract_details(String.t()) :: ErrorMessage.t_res()
   def contract_details(conid) do
@@ -239,7 +277,6 @@ defmodule IbkrApi.ClientPortal.Contract do
   @spec get_contract_ids(String.t()) :: ErrorMessage.t_res()
   def get_contract_ids(exchange) do
     with {:ok, response} <- HTTP.get(Path.join(@base_url, "/trsrv/all-conids"), [], params: %{exchange: exchange}) do
-      IO.inspect(response)
       {:ok, Enum.map(response, &parse_contract_id/1)}
     end
   end
@@ -324,7 +361,24 @@ defmodule IbkrApi.ClientPortal.Contract do
       {:ok, %StrikesResponse{call: [70, 75, 80], put: [70, 75, 80]}}
   """
   @spec get_strikes(String.t(), String.t(), Date.t(), Keyword.t()) :: ErrorMessage.t_res()
-  def get_strikes(contract_id, sec_type, %Date{} = month, opts \\ []) do
+  def get_strikes(contract_id, sec_type, months, opts \\ [])
+
+  def get_strikes(contract_id, sec_type, months, opts) when is_list(months) do
+    months
+    |> Task.async_stream(fn month ->
+      with {:ok, strikes} <- get_strikes(contract_id, sec_type, month, opts) do
+        {month, strikes}
+      end
+    end, shutdown: :brutal_kill)
+    |> Stream.map(fn {:ok, value} -> value end)
+    |> Enum.to_list
+    |> Enum.group_by(fn {month, _} -> month end, fn {_, strikes} -> strikes end)
+    |> Map.new(fn {month, [strikes]} -> {month, strikes} end)
+    |> then(fn strikes_by_date -> {:ok, strikes_by_date} end)
+  end
+
+  @spec get_strikes(String.t(), String.t(), Date.t(), Keyword.t()) :: ErrorMessage.t_res()
+  def get_strikes(contract_id, sec_type, %Date{} = month, opts) do
     month_str = format_month_for_ibkr(month)
     exchange = Keyword.get(opts, :exchange, "SMART")
 
@@ -336,11 +390,10 @@ defmodule IbkrApi.ClientPortal.Contract do
     }
 
     with {:ok, response} <- HTTP.get(Path.join(@base_url, "/iserver/secdef/strikes"), [], params: query_params) do
-      strikes_response = %StrikesResponse{
+      {:ok, %StrikesResponse{
         call: response["call"] || response[:call] || [],
         put: response["put"] || response[:put] || []
-      }
-      {:ok, strikes_response}
+      }}
     end
   end
 
@@ -360,15 +413,14 @@ defmodule IbkrApi.ClientPortal.Contract do
       iex> get_strikes("AAPL")
       {:ok, %StrikesResponse{call: [150, 155, 160], put: [150, 155, 160]}}
   """
-  @spec get_strikes(String.t(), Keyword.t()) :: ErrorMessage.t_res()
-  def get_strikes(symbol, opts \\ []) when is_binary(symbol) do
-    month = Keyword.get(opts, :month, Date.utc_today())
+  @spec get_strikes_by_symbol(String.t(), Keyword.t()) :: ErrorMessage.t_res()
+  def get_strikes_by_symbol(symbol, opts \\ []) when is_binary(symbol) do
     sec_type = Keyword.get(opts, :sec_type, "STK")
 
     with {:ok, contracts} <- search_contracts(symbol, sec_type: sec_type),
-         {:ok, contract} <- find_optionable_contract(contracts),
-         {:ok, strikes} <- get_strikes(contract.conid, "OPT", month) do
-      {:ok, strikes}
+         {:ok, {contract, months}} <- find_optionable_contract(contracts),
+         {:ok, strikes} <- get_strikes(contract.conid, "OPT", opts[:months] || months) do
+      {:ok, {contract.conid, strikes}}
     else
       {:error, :no_optionable_contract} ->
         {:error, "No optionable contract found for symbol #{symbol}"}
@@ -513,10 +565,14 @@ defmodule IbkrApi.ClientPortal.Contract do
     }
   end
 
+  defp parse_secdef_info(info_data) when is_list(info_data) do
+    Enum.map(info_data, &parse_secdef_info/1)
+  end
+
   defp parse_secdef_info(info_data) do
     %SecdefInfo{
       conid: info_data["conid"] || info_data[:conid],
-      symbol: info_data["symbol"] || info_data[:symbol],
+      symbol: info_data["symbol"] || info_data[:symbol] || info_data[:ticker],
       sec_type: info_data["sec_type"] || info_data[:sec_type],
       listing_exchange: info_data["listing_exchange"] || info_data[:listing_exchange],
       exchange: info_data["exchange"] || info_data[:exchange],
@@ -573,6 +629,7 @@ defmodule IbkrApi.ClientPortal.Contract do
 
   defp parse_months_string(nil), do: []
   defp parse_months_string(""), do: []
+  defp parse_months_string(months_list) when is_list(months_list), do: months_list
   defp parse_months_string(months_str) when is_binary(months_str) do
     months_str
     |> String.split(";")
@@ -626,14 +683,11 @@ defmodule IbkrApi.ClientPortal.Contract do
   defp find_optionable_contract([]), do: {:error, :no_optionable_contract}
   defp find_optionable_contract([contract | rest]) do
     # Look for a contract that has options (OPT section)
-    has_options = Enum.any?(contract.sections, fn section ->
-      section.secType == "OPT"
-    end)
-
-    if has_options do
-      {:ok, contract}
-    else
-      find_optionable_contract(rest)
+    case Enum.find(contract.sections, fn section ->
+      section.sec_type == "OPT"
+    end) do
+      nil -> find_optionable_contract(rest)
+      section -> {:ok, {contract, section.months}}
     end
   end
 end

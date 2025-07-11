@@ -384,7 +384,6 @@ defmodule IbkrApi.ClientPortal.Portfolio do
   @base_url IbkrApi.Config.base_url()
 
   alias IbkrApi.HTTP
-  alias IbkrApi.SharedUtils.ErrorMessage
 
   @spec list_accounts() :: ErrorMessage.t_res()
   def list_accounts do
@@ -499,7 +498,24 @@ defmodule IbkrApi.ClientPortal.Portfolio do
   @spec account_allocation(String.t()) :: ErrorMessage.t_res()
   def account_allocation(account_id) do
     with {:ok, response} <- HTTP.get(Path.join(@base_url, "/portfolio/#{account_id}/allocation")) do
-      {:ok, struct(AccountAllocation, response)}
+      # Extract allocation data from the 'long' section of the response
+      allocation_data = case response do
+        %{long: long_data} when is_map(long_data) ->
+          %{
+            group: Map.get(long_data, :group, %{}),
+            asset_class: Map.get(long_data, :asset_class, %{}),
+            sector: Map.get(long_data, :sector, %{})
+          }
+        _ ->
+          # Fallback for direct response format
+          %{
+            group: Map.get(response, :group, %{}),
+            asset_class: Map.get(response, :asset_class, %{}),
+            sector: Map.get(response, :sector, %{})
+          }
+      end
+      
+      {:ok, struct(AccountAllocation, allocation_data)}
     end
   end
 

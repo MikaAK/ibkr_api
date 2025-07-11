@@ -39,6 +39,8 @@ defmodule IbkrApi.MixProject do
       {:proper_case, "~> 1.3"},
       {:error_message, "~> 0.3"},
       {:jason, "~> 1.4"},
+      {:hammer, "~> 7.0"},
+      {:nimble_options, "~> 1.1"},
       {:ex_doc, "~> 0.29", only: :dev, runtime: false}
     ]
   end

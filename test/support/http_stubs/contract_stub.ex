@@ -6,7 +6,7 @@ defmodule IbkrApi.Support.HTTPStubs.ContractStub do
   alias IbkrApi.Support.HTTPMock
   alias IbkrApi.Support.HTTPSandbox
 
-  @base_url "https://localhost:5000/v1/api"
+  @base_url "https://localhost:5050/v1/api"
   
   @doc """
   Stubs the contract info endpoint.
@@ -194,25 +194,34 @@ defmodule IbkrApi.Support.HTTPStubs.ContractStub do
     url_pattern = ~r{#{@base_url}/iserver/secdef/search}
     
     default_fn = fn ->
-      HTTPMock.success(%{
-        "sections" => [
-          %{
-            "secType" => "STK",
-            "symbol" => "AAPL",
-            "name" => "APPLE INC",
-            "exchange" => "NASDAQ",
-            "conid" => "265598"
-          },
-          %{
-            "secType" => "OPT",
-            "months" => "JUL25 AUG25 OCT25",
-            "symbol" => "AAPL",
-            "name" => "APPLE INC",
-            "exchange" => "NASDAQ",
-            "conid" => "265598"
-          }
-        ]
-      })
+      HTTPMock.success([
+        %{
+          "conid" => "265598",
+          "symbol" => "AAPL",
+          "company_name" => "APPLE INC",
+          "company_header" => "APPLE INC",
+          "description" => "Apple Inc. Common Stock",
+          "restricted" => false,
+          "fop" => false,
+          "opt" => true,
+          "war" => false,
+          "sections" => [
+            %{
+              "sec_type" => "STK",
+              "exchange" => "NASDAQ",
+              "conid" => "265598",
+              "months" => []
+            },
+            %{
+              "sec_type" => "OPT",
+              "exchange" => "NASDAQ",
+              "conid" => "265598",
+              "months" => ["JUL25", "AUG25", "OCT25"]
+            }
+          ],
+          "issuers" => []
+        }
+      ])
     end
     
     HTTPSandbox.set_get_responses([{url_pattern, response_fn || default_fn}])
