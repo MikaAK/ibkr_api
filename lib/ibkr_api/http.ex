@@ -15,6 +15,7 @@ defmodule IbkrApi.HTTP do
   @default_opts [
     name: @app_name,
     atomize_keys?: true,
+    http: [sandbox: Mix.env() === :test],
     # follow_redirects?: true,
 
     pools: [
