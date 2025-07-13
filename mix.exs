@@ -2,7 +2,7 @@ defmodule IbkrApi.MixProject do
   use Mix.Project
 
   @source_url "https://github.com/MikaAK/ibkr_api"
-  @version "1.0.2"
+  @version "1.0.3"
   @description "Elixir client for Interactive Brokers' Client Portal API"
 
   def project do
