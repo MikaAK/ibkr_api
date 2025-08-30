@@ -149,10 +149,11 @@ defmodule IbkrApi.RateLimiter do
   defp get_rate_limit(rate_limits, endpoint) when is_list(rate_limits) do
     endpoints_config = Keyword.get(rate_limits, :endpoints, [])
     endpoint_config = Keyword.get(endpoints_config, endpoint, [])
+    global_config = get_rate_limit(rate_limits, :global)
 
     %{
-      limit: Keyword.get(endpoint_config, :limit, 10),
-      time_window_ms: Keyword.get(endpoint_config, :time_window_ms, 1_000)
+      limit: Keyword.get(endpoint_config, :limit, global_config.limit),
+      time_window_ms: Keyword.get(endpoint_config, :time_window_ms, global_config.time_window_ms)
     }
   end
 end

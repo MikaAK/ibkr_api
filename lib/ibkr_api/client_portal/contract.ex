@@ -398,6 +398,55 @@ defmodule IbkrApi.ClientPortal.Contract do
   end
 
   @doc """
+  Get a specific option contract by symbol, expiry, strike, and right.
+
+  This function searches for the underlying stock contract, then retrieves the specific
+  option contract details using the provided parameters.
+
+  ## Parameters
+  - `symbol`: The ticker symbol of the underlying stock
+  - `expiry_date`: Date struct representing the expiration date
+  - `strike`: Strike price as a number
+  - `right`: "C" for Call, "P" for Put
+  - `opts`: Optional parameters:
+    - `:exchange`: Exchange (defaults to "SMART")
+    - `:sec_type`: Security type for underlying search (defaults to "STK")
+
+  ## Examples
+      iex> expiry = ~D[2024-01-19]
+      iex> get_option_contract("AAPL", expiry, 150, "C")
+      {:ok, %SecdefInfo{conid: 123456, symbol: "AAPL", right: "C", strike: 150, ...}}
+
+      iex> get_option_contract("NVDA", ~D[2024-02-16], 500, "P")
+      {:ok, %SecdefInfo{conid: 789012, symbol: "NVDA", right: "P", strike: 500, ...}}
+  """
+  @spec get_option_contract(String.t(), Date.t(), number(), String.t(), Keyword.t()) :: ErrorMessage.t_res()
+  def get_option_contract(symbol, expiry_date, strike, right, opts \\ []) do
+    sec_type = Keyword.get(opts, :sec_type, "STK")
+    exchange = Keyword.get(opts, :exchange, "SMART")
+
+    with {:ok, contracts} <- search_contracts(symbol, sec_type: sec_type),
+         {:ok, underlying_contract} <- find_underlying_contract(contracts),
+         {:ok, option_contracts} <- get_contract_info(
+           underlying_contract.conid,
+           sec_type: "OPT",
+           month: format_month_for_ibkr(expiry_date),
+           strike: strike,
+           right: right,
+           exchange: exchange
+         ) do
+      case option_contracts do
+        [contract | _] -> {:ok, contract}
+        [] -> {:error, ErrorMessage.not_found("No option contract found for #{symbol} #{strike}#{right} #{format_month_for_ibkr(expiry_date)}")}
+      end
+    else
+      {:error, :no_underlying_contract} ->
+        {:error, ErrorMessage.not_found("No underlying contract found for symbol #{symbol}")}
+      error -> error
+    end
+  end
+
+  @doc """
   Convenience function to get strikes for a symbol by first searching for the contract.
 
   This function searches for the symbol, finds the first matching contract with options,
@@ -423,7 +472,7 @@ defmodule IbkrApi.ClientPortal.Contract do
       {:ok, {contract.conid, strikes}}
     else
       {:error, :no_optionable_contract} ->
-        {:error, "No optionable contract found for symbol #{symbol}"}
+        {:error, ErrorMessage.not_found("No optionable contract found for symbol #{symbol}")}
       error -> error
     end
   end
@@ -462,8 +511,11 @@ defmodule IbkrApi.ClientPortal.Contract do
     |> maybe_add_param("filters", opts[:filters])
 
     with {:ok, response} <- HTTP.get(Path.join(@base_url, "/iserver/secdef/info"), [], params: query_params) do
-      secdef_infos = Enum.map(response, &parse_secdef_info/1)
-      {:ok, secdef_infos}
+      if is_list(response) do
+        {:ok, Enum.map(response, &parse_secdef_info/1)}
+      else
+        {:ok, [parse_secdef_info(response)]}
+      end
     end
   end
 
@@ -630,11 +682,16 @@ defmodule IbkrApi.ClientPortal.Contract do
   defp parse_months_string(nil), do: []
   defp parse_months_string(""), do: []
   defp parse_months_string(months_list) when is_list(months_list), do: months_list
+  |> Enum.map(&parse_months_string/1) |> List.flatten
   defp parse_months_string(months_str) when is_binary(months_str) do
-    months_str
-    |> String.split(";")
-    |> Enum.map(&parse_ibkr_month_to_date/1)
-    |> Enum.reject(&is_nil/1)
+    if months_str =~ ~r/[A-Z]{2,3}[0-9]{2}/ do
+      months_str
+      |> String.split(";")
+      |> Enum.map(&parse_ibkr_month_to_date/1)
+      |> Enum.reject(&is_nil/1)
+    else
+      months_str
+    end
   end
 
   defp parse_exchange(nil), do: nil
@@ -689,5 +746,10 @@ defmodule IbkrApi.ClientPortal.Contract do
       nil -> find_optionable_contract(rest)
       section -> {:ok, {contract, section.months}}
     end
+  end
+
+  defp find_underlying_contract([]), do: {:error, :no_underlying_contract}
+  defp find_underlying_contract([contract | _rest]) do
+    {:ok, contract}
   end
 end

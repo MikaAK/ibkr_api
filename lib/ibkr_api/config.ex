@@ -1,12 +1,12 @@
 defmodule IbkrApi.Config do
   @moduledoc """
   Configuration settings for the IBKR API client.
-  
+
   This module provides functions to access configuration values with sensible defaults.
   Values can be overridden in your application configuration.
-  
+
   ## Example Configuration
-  
+
   ```elixir
   config :ibkr_api,
     host: "https://localhost",
@@ -20,7 +20,7 @@ defmodule IbkrApi.Config do
     ]
   ```
   """
-  
+
   # Rate limiting configuration schema
   @rate_limit_schema [
     limit: [
@@ -34,7 +34,7 @@ defmodule IbkrApi.Config do
       doc: "Time window in milliseconds for the rate limit"
     ]
   ]
-  
+
   @rate_limits_schema [
     global: [
       type: :keyword_list,
@@ -60,14 +60,21 @@ defmodule IbkrApi.Config do
   Returns the base URL for the IBKR API.
   """
   def base_url do
-    "#{host()}:#{port()}/v1/api"
+    "#{scheme()}://#{host()}:#{port()}/v1/api"
+  end
+
+  @doc """
+  Returns the configured scheme or the default value.
+  """
+  def scheme do
+    Application.get_env(:ibkr_api, :scheme, "https")
   end
 
   @doc """
   Returns the configured host or the default value.
   """
   def host do
-    Application.get_env(:ibkr_api, :host, "https://localhost")
+    Application.get_env(:ibkr_api, :host, "localhost")
   end
 
   @doc """
@@ -75,6 +82,13 @@ defmodule IbkrApi.Config do
   """
   def port do
     Application.get_env(:ibkr_api, :port, "5050")
+  end
+
+  @doc """
+  Returns the configured sandbox or the default value.
+  """
+  def sandbox_enabled? do
+    Application.get_env(:ibkr_api, :sandbox?, false)
   end
 
   @doc """
@@ -94,7 +108,7 @@ defmodule IbkrApi.Config do
   @spec rate_limit() :: keyword()
   def rate_limit do
     user_config = Application.get_env(:ibkr_api, :rate_limits, [])
-    
+
     case validate_rate_limits(user_config) do
       {:ok, validated_config} ->
         validated_config
@@ -121,39 +135,43 @@ defmodule IbkrApi.Config do
   """
   @spec default_rate_limits() :: keyword()
   def default_rate_limits do
-    [
-      global: [limit: 50, time_window_ms: 1_000],
-      endpoints: [
-        # Gateway default: 10 requests per second
-        gateway: [limit: 10, time_window_ms: 1_000],
-        
-        # Endpoint-specific defaults based on IBKR documentation
-        iserver_marketdata_snapshot: [limit: 10, time_window_ms: 1_000],
-        iserver_scanner_params: [limit: 1, time_window_ms: 15 * 60_000],
-        iserver_scanner_run: [limit: 1, time_window_ms: 1_000],
-        iserver_trades: [limit: 1, time_window_ms: 5_000],
-        iserver_orders: [limit: 1, time_window_ms: 5_000],
-        iserver_account_pnl_partitioned: [limit: 1, time_window_ms: 5_000],
-        portfolio_accounts: [limit: 1, time_window_ms: 5_000],
-        portfolio_subaccounts: [limit: 1, time_window_ms: 5_000],
-        pa_performance: [limit: 1, time_window_ms: 15 * 60_000],
-        pa_summary: [limit: 1, time_window_ms: 15 * 60_000],
-        pa_transactions: [limit: 1, time_window_ms: 15 * 60_000],
-        fyi_unreadnumber: [limit: 1, time_window_ms: 1_000],
-        fyi_settings: [limit: 1, time_window_ms: 1_000],
-        fyi_settings_typecode: [limit: 1, time_window_ms: 1_000],
-        fyi_disclaimer_typecode: [limit: 1, time_window_ms: 1_000],
-        fyi_deliveryoptions: [limit: 1, time_window_ms: 1_000],
-        fyi_deliveryoptions_email: [limit: 1, time_window_ms: 1_000],
-        fyi_deliveryoptions_device: [limit: 1, time_window_ms: 1_000],
-        fyi_deliveryoptions_deviceId: [limit: 1, time_window_ms: 1_000],
-        fyi_notifications: [limit: 1, time_window_ms: 1_000],
-        fyi_notifications_more: [limit: 1, time_window_ms: 1_000],
-        fyi_notifications_notificationId: [limit: 1, time_window_ms: 1_000],
-        tickle: [limit: 1, time_window_ms: 1_000],
-        sso_validate: [limit: 1, time_window_ms: 60_000]
+    if sandbox_enabled?() do
+      [global: [limit: 99999999, time_window_ms: 100]]
+    else
+        [
+          global: [limit: 50, time_window_ms: 1_000],
+          endpoints: [
+            # Gateway default: 10 requests per second
+            gateway: [limit: 10, time_window_ms: 1_000],
+
+          # Endpoint-specific defaults based on IBKR documentation
+          iserver_marketdata_snapshot: [limit: 10, time_window_ms: 1_000],
+          iserver_scanner_params: [limit: 1, time_window_ms: 15 * 60_000],
+          iserver_scanner_run: [limit: 1, time_window_ms: 1_000],
+          iserver_trades: [limit: 1, time_window_ms: 5_000],
+          iserver_orders: [limit: 1, time_window_ms: 5_000],
+          iserver_account_pnl_partitioned: [limit: 1, time_window_ms: 5_000],
+          portfolio_accounts: [limit: 1, time_window_ms: 5_000],
+          portfolio_subaccounts: [limit: 1, time_window_ms: 5_000],
+          pa_performance: [limit: 1, time_window_ms: 15 * 60_000],
+          pa_summary: [limit: 1, time_window_ms: 15 * 60_000],
+          pa_transactions: [limit: 1, time_window_ms: 15 * 60_000],
+          fyi_unreadnumber: [limit: 1, time_window_ms: 1_000],
+          fyi_settings: [limit: 1, time_window_ms: 1_000],
+          fyi_settings_typecode: [limit: 1, time_window_ms: 1_000],
+          fyi_disclaimer_typecode: [limit: 1, time_window_ms: 1_000],
+          fyi_deliveryoptions: [limit: 1, time_window_ms: 1_000],
+          fyi_deliveryoptions_email: [limit: 1, time_window_ms: 1_000],
+          fyi_deliveryoptions_device: [limit: 1, time_window_ms: 1_000],
+          fyi_deliveryoptions_deviceId: [limit: 1, time_window_ms: 1_000],
+          fyi_notifications: [limit: 1, time_window_ms: 1_000],
+          fyi_notifications_more: [limit: 1, time_window_ms: 1_000],
+          fyi_notifications_notificationId: [limit: 1, time_window_ms: 1_000],
+          tickle: [limit: 1, time_window_ms: 1_000],
+          sso_validate: [limit: 1, time_window_ms: 60_000]
+        ]
       ]
-    ]
+    end
   end
 
   @doc """
@@ -167,13 +185,13 @@ defmodule IbkrApi.Config do
   """
   def rate_limit(key) when is_atom(key) do
     config = rate_limit()
-    
+
     if key === :global do
       Map.new(config[:global])
     else
       endpoints = config[:endpoints] || []
       endpoint_config = Keyword.get(endpoints, key)
-      
+
       if endpoint_config do
         Map.new(endpoint_config)
       else

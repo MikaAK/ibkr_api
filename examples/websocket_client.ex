@@ -8,7 +8,7 @@ defmodule Examples.WebsocketClient do
   ## Usage
 
       # Start the client
-      {:ok, pid} = Examples.WebsocketClient.start_link(%{})
+      {:ok, pid} = Examples.WebsocketClient.start_link(initial_state: %{})
 
       # Subscribe to market data for IBM (contract ID 8314)
       Examples.WebsocketClient.subscribe_to_market_data(pid, [8314], ["31", "83"])
@@ -45,19 +45,19 @@ defmodule Examples.WebsocketClient do
   def handle_event({:market_data, data}, state) do
     Logger.info("Market Data Update for Contract #{data.contract_id}")
     Logger.debug("Fields: #{inspect(data.fields)}")
-    
+
     # Extract common fields
     last_price = Map.get(data.fields, "31")
     percent_change = Map.get(data.fields, "83")
-    
+
     if last_price do
       Logger.info("  Last Price: #{last_price}")
     end
-    
+
     if percent_change do
       Logger.info("  Percent Change: #{percent_change}%")
     end
-    
+
     {:ok, state}
   end
 
@@ -69,15 +69,15 @@ defmodule Examples.WebsocketClient do
 
   def handle_event({:pnl_update, pnl}, state) do
     Logger.info("P&L Update:")
-    
+
     if pnl.daily_pnl do
       Logger.info("  Daily P&L: #{pnl.daily_pnl}")
     end
-    
+
     if pnl.unrealized_pnl do
       Logger.info("  Unrealized P&L: #{pnl.unrealized_pnl}")
     end
-    
+
     Logger.debug("Full P&L Data: #{inspect(pnl.data)}")
     {:ok, state}
   end

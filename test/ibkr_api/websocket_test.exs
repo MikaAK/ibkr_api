@@ -198,7 +198,7 @@ defmodule IbkrApi.WebsocketTest do
 
       # Test error handling without actually connecting
       # Since we can't connect to a fake URL, we'll test the error handling logic differently
-      case ErrorClient.start_link(%{test_pid: self()}, url: "ws://localhost:9999") do
+      case ErrorClient.start_link(initial_state: %{test_pid: self()}, url: "ws://localhost:9999") do
         {:ok, pid} ->
           message = %{"topic" => "test"}
           send(pid, {:websocket_frame, {:text, Jason.encode!(message)}})

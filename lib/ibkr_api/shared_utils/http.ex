@@ -339,7 +339,7 @@ defmodule IbkrApi.SharedUtils.HTTP do
     end
   end
 
-  if Mix.env() === :test do
+  if IbkrApi.Config.sandbox_enabled?() do
     defdelegate sandbox_head_response(url, headers, options),
       to: IbkrApi.Support.HTTPSandbox,
       as: :head_response

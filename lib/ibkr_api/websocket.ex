@@ -96,18 +96,20 @@ defmodule IbkrApi.Websocket do
   use WebSockex
   require Logger
 
-  @default_gateway_url "wss://localhost:5000/v1/api/ws"
+  @default_gateway_url "wss://#{IbkrApi.Config.host()}:#{IbkrApi.Config.port()}/v1/api/ws"
   @heartbeat_interval 10_000
+
+  @callback handle_event(event :: term(), state :: term()) :: {:ok, term()} | {:error, term()}
 
   defmacro __using__(_opts) do
     quote do
       use WebSockex
       require Logger
 
-      @behaviour IbkrApi.Websocket.Behaviour
+      @behaviour IbkrApi.Websocket
 
-      def start_link(initial_state, opts \\ []) do
-        IbkrApi.Websocket.start_link(__MODULE__, initial_state, opts)
+      def start_link(opts \\ []) do
+        IbkrApi.Websocket.start_link(__MODULE__, opts)
       end
 
       def subscribe_to_market_data(pid, contract_ids, fields, opts \\ %{}) do
@@ -138,6 +140,11 @@ defmodule IbkrApi.Websocket do
         IbkrApi.Websocket.send_heartbeat(pid)
       end
 
+      # Read-only helpers to introspect the WebSocket process state
+      def get_session(pid) do
+        IbkrApi.Websocket.get_session(pid)
+      end
+
       # Default implementation - users should override this
       def handle_event(_event, state) do
         {:ok, state}
@@ -147,33 +154,28 @@ defmodule IbkrApi.Websocket do
     end
   end
 
-  defmodule Behaviour do
-    @moduledoc """
-    Behaviour for WebSocket event handlers.
-    """
-
-    @callback handle_event(event :: term(), state :: term()) :: {:ok, term()} | {:error, term()}
-  end
-
   @doc """
   Starts a WebSocket connection to the IBKR Client Portal Gateway.
 
   ## Options
 
-  - `:url` - WebSocket URL (default: "wss://localhost:5000/v1/api/ws")
+  - `:url` - WebSocket URL (default derived from `IbkrApi.Config`)
   - `:ssl_opts` - SSL options for the connection
   - `:heartbeat` - Whether to send automatic heartbeats (default: true)
+  - `:initial_state` - Initial user state (default: `%{}`)
   """
-  def start_link(module, initial_state, opts \\ []) do
+  def start_link(module, opts \\ []) do
     url = Keyword.get(opts, :url, @default_gateway_url)
     ssl_opts = Keyword.get(opts, :ssl_opts, default_ssl_opts(url))
     heartbeat = Keyword.get(opts, :heartbeat, true)
+    initial_state = Keyword.get(opts, :initial_state, %{})
 
     state = %{
       module: module,
       user_state: initial_state,
       heartbeat: heartbeat,
-      subscriptions: %{}
+      subscriptions: %{},
+      session: %{}
     }
 
     websocket_opts = [
@@ -266,7 +268,18 @@ defmodule IbkrApi.Websocket do
     WebSockex.cast(pid, {:send_message, "ech+hb"})
   end
 
-  # WebSockex callbacks
+  @doc """
+  Returns the stored session/auth/system information tracked by the WebSocket process.
+  """
+  def get_session(pid, timeout \\ 5_000) do
+    ref = make_ref()
+    WebSockex.cast(pid, {:get_session, {self(), ref}})
+    receive do
+      {^ref, session} -> session
+    after
+      timeout -> {:error, :timeout}
+    end
+  end
 
   def handle_connect(_conn, state) do
     Logger.info("Connected to IBKR WebSocket")
@@ -282,6 +295,7 @@ defmodule IbkrApi.Websocket do
     case Jason.decode(msg) do
       {:ok, data} ->
         event = parse_message(data)
+        state = maybe_update_session(state, event)
         case apply(state.module, :handle_event, [event, state.user_state]) do
           {:ok, new_user_state} ->
             {:ok, %{state | user_state: new_user_state}}
@@ -296,8 +310,44 @@ defmodule IbkrApi.Websocket do
     end
   end
 
+  # Some gateways may send binary frames (e.g., compressed or raw JSON). Attempt to decode; if it fails, ignore safely.
+  def handle_frame({:binary, msg}, state) do
+    case Jason.decode(msg) do
+      {:ok, data} ->
+        event = parse_message(data)
+        state = maybe_update_session(state, event)
+        case apply(state.module, :handle_event, [event, state.user_state]) do
+          {:ok, new_user_state} ->
+            {:ok, %{state | user_state: new_user_state}}
+          {:error, reason} ->
+            Logger.error("Error handling event (binary): #{inspect(reason)}")
+            {:ok, state}
+        end
+      {:error, _} ->
+        Logger.debug("Ignoring non-JSON binary frame: #{inspect(byte_size(msg))} bytes")
+        {:ok, state}
+    end
+  end
+
+  # Gracefully handle ping/pong frames if surfaced
+  def handle_frame(:ping, state), do: {:ok, state}
+  def handle_frame(:pong, state), do: {:ok, state}
+  def handle_frame({:ping, _payload}, state), do: {:ok, state}
+  def handle_frame({:pong, _payload}, state), do: {:ok, state}
+
+  # Catch-all to avoid crashes on unexpected frame types
+  def handle_frame(frame, state) do
+    Logger.debug("Unhandled frame: #{inspect(frame)}")
+    {:ok, state}
+  end
+
   def handle_cast({:send_message, message}, state) do
     {:reply, {:text, message}, state}
+  end
+
+  def handle_cast({:get_session, {from, ref}}, state) do
+    send(from, {ref, state.session})
+    {:ok, state}
   end
 
   def handle_info(:heartbeat, state) do
@@ -340,19 +390,25 @@ defmodule IbkrApi.Websocket do
     cond do
       String.starts_with?(topic, "smd+") ->
         parse_market_data(data)
-      
+
       topic === "sor" or String.starts_with?(topic, "o+") ->
         parse_order_update(data)
-      
+
       topic === "spl" ->
         parse_pnl_update(data)
-      
+
       topic === "act" ->
-        {:activation, data}
-      
+        {:activation, Map.get(data, "args", %{})}
+
+      topic === "sts" ->
+        {:status, Map.get(data, "args", %{})}
+
+      topic === "system" ->
+        {:system, data}
+
       Map.has_key?(data, "hb") ->
         {:heartbeat, data}
-      
+
       true ->
         {:unknown, data}
     end
@@ -365,7 +421,7 @@ defmodule IbkrApi.Websocket do
   defp parse_market_data(%{"topic" => topic, "conid" => conid} = data) do
     # Extract contract ID from topic (e.g., "smd+8314" -> 8314)
     fields = Map.drop(data, ["topic", "conid", "seq"])
-    
+
     {:market_data, %{
       contract_id: conid,
       topic: topic,
@@ -402,4 +458,52 @@ defmodule IbkrApi.Websocket do
       timestamp: System.system_time(:millisecond)
     }}
   end
+
+  # Persist selected session/auth/system details into the socket state
+  defp maybe_update_session(state, {:activation, args}) when is_map(args) do
+    session_update = %{
+      accounts: Map.get(args, "accounts"),
+      selected_account: Map.get(args, "selectedAccount"),
+      acct_props: Map.get(args, "acctProps"),
+      allow_features: Map.get(args, "allowFeatures"),
+      chart_periods: Map.get(args, "chartPeriods"),
+      groups: Map.get(args, "groups"),
+      profiles: Map.get(args, "profiles"),
+      server_info: Map.get(args, "serverInfo"),
+      session_id: Map.get(args, "sessionId")
+    }
+
+    put_in(state, [:session], Map.merge(state.session, session_update))
+  end
+
+  defp maybe_update_session(state, {:status, args}) when is_map(args) do
+    status_update = %{
+      auth: %{
+        authenticated: Map.get(args, "authenticated"),
+        competing: Map.get(args, "competing"),
+        connected: Map.get(args, "connected"),
+        username: Map.get(args, "username"),
+        message: Map.get(args, "message"),
+        fail: Map.get(args, "fail"),
+        server_name: Map.get(args, "serverName"),
+        server_version: Map.get(args, "serverVersion")
+      }
+    }
+
+    update_in(state.session, &Map.merge(&1, status_update)) |> then(&%{state | session: &1})
+  end
+
+  defp maybe_update_session(state, {:system, data}) when is_map(data) do
+    sys_update = %{
+      system: %{
+        is_ft: Map.get(data, "isFT"),
+        is_paper: Map.get(data, "isPaper"),
+        success: Map.get(data, "success")
+      }
+    }
+
+    update_in(state.session, &Map.merge(&1, sys_update)) |> then(&%{state | session: &1})
+  end
+
+  defp maybe_update_session(state, _), do: state
 end
